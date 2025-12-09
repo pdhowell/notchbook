@@ -29,9 +29,33 @@
 		53BB050F2EE811700050ED19 /* NotchUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = NotchUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		53BB05272EE818810050ED19 /* Exceptions for "Notch" folder in "Notch" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				.swift,
+			);
+			target = 53BB04F72EE8116F0050ED19 /* Notch */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
+/* Begin PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet section */
+		53BB05282EE818810050ED19 /* Exceptions for "Notch" folder in "Compile Sources" phase from "Notch" target */ = {
+			isa = PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet;
+			buildPhase = 53BB04F42EE8116F0050ED19 /* Sources */;
+			membershipExceptions = (
+				.swift,
+			);
+		};
+/* End PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		53BB04FA2EE8116F0050ED19 /* Notch */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				53BB05272EE818810050ED19 /* Exceptions for "Notch" folder in "Notch" target */,
+				53BB05282EE818810050ED19 /* Exceptions for "Notch" folder in "Compile Sources" phase from "Notch" target */,
+			);
 			path = Notch;
 			sourceTree = "<group>";
 		};
