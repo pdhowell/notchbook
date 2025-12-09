@@ -47,6 +47,7 @@
 //        self.window = panel
 //    }
 //}
+//
 
 
 import SwiftUI
@@ -68,34 +69,36 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         setupWindow()
     }
-    
-    
+
     func setupWindow() {
-            guard let screen = NSScreen.main else { return }
-            
-            let windowWidth: CGFloat = 1000
-            let windowHeight: CGFloat = 600
-            
-            // CRITICAL: Use screen.frame (NOT visibleFrame) to go above menu bar
-            let screenFrame = screen.frame
-            
-            // Center X
-            let xPos = screenFrame.origin.x + (screenFrame.width - windowWidth) / 2
-            
-            // FIXED: Position at ABSOLUTE top (above menu bar)
-            // screen.frame.maxY is the top pixel of the screen
-            let yPos = screenFrame.maxY - windowHeight
-            
-            let panelRect = NSRect(x: xPos, y: yPos, width: windowWidth, height: windowHeight)
-            
-            let panel = NotchPanel(contentRect: panelRect, backing: .buffered, defer: false)
-            
-            let hostingView = NSHostingView(rootView: ContentView())
-            hostingView.layer?.backgroundColor = NSColor.clear.cgColor
-            
-            panel.contentView = hostingView
-            panel.orderFrontRegardless()
-            
-            self.window = panel
-        }
+        guard let screen = NSScreen.main else { return }
+
+        // --- FIX STARTS HERE ---
+        // 1. Make the window wider than your max slider value (900px)
+        let windowWidth: CGFloat = 1000
+        
+        // 2. Make height tall enough for the Settings View (which is 500px)
+        let windowHeight: CGFloat = 600
+
+        let visible = screen.visibleFrame
+        
+        // Center X
+        let xPos = visible.origin.x + (visible.width - windowWidth) / 2
+        
+        // Top Y (Align to top of screen)
+        let yPos = visible.maxY - windowHeight
+
+        let panelRect = NSRect(x: xPos, y: yPos, width: windowWidth, height: windowHeight)
+        // --- FIX ENDS HERE ---
+        
+        let panel = NotchPanel(contentRect: panelRect, backing: .buffered, defer: false)
+        
+        let hostingView = NSHostingView(rootView: ContentView())
+        hostingView.layer?.backgroundColor = NSColor.clear.cgColor
+        
+        panel.contentView = hostingView
+        panel.orderFrontRegardless()
+        
+        self.window = panel
+    }
 }

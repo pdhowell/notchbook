@@ -46,23 +46,27 @@ struct ContentView: View {
                 
                 // SETTINGS PANEL
                 if showSettings {
-                    Color.black.opacity(0.3)
-                        .ignoresSafeArea()
-                        .onTapGesture { withAnimation { showSettings = false } }
-                    
-                    SettingsView(
-                        notchWidth: $notchWidth,
-                        notchHeight: $notchHeight,
-                        showMirror: $showMirror,
-                        isPresented: $showSettings
-                    )
-                    .frame(width: 400, height: 500)
-                    .background(
-                        RoundedRectangle(cornerRadius: 20)
-                            .fill(Color(NSColor.windowBackgroundColor))
-                            .shadow(radius: 30)
-                    )
-                    .transition(.scale.combined(with: .opacity))
+                    Color.clear
+                            .contentShape(Rectangle()) // Ensures the transparent area catches clicks
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                            .onTapGesture { withAnimation { showSettings = false } }
+                        
+                        SettingsView(
+                            notchWidth: $notchWidth,
+                            notchHeight: $notchHeight,
+                            showMirror: $showMirror,
+                            isPresented: $showSettings
+                        )
+                        .frame(width: 400, height: 450)
+                        .background(
+                            RoundedRectangle(cornerRadius: 20)
+                                .fill(Color(NSColor.windowBackgroundColor))
+                                // Add a strong shadow so it pops against the desktop wallpaper
+                                .shadow(color: .black.opacity(0.3), radius: 20, x: 0, y: 10)
+                        )
+                        .padding(.top, 120)
+                        .transition(.move(edge: .top).combined(with: .opacity))
+                        .zIndex(2)
                 }
             }
         }
