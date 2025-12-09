@@ -73,81 +73,67 @@ struct ContentView: View {
     }
     
     var notchContent: some View {
-        ZStack(alignment: .top) {
-            // BACKGROUND WITH GRADIENT
-            RoundedRectangle(cornerRadius: isHovering ? 28 : 16, style: .continuous)
-                .fill(
-                    LinearGradient(
-                        gradient: Gradient(colors: [
-                            Color.black.opacity(0.95),
-                            Color.black.opacity(0.98)
-                        ]),
-                        startPoint: .top,
-                        endPoint: .bottom
-                    )
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: isHovering ? 28 : 16, style: .continuous)
-                        .stroke(
-                            LinearGradient(
-                                gradient: Gradient(colors: [
-                                    Color.white.opacity(0.2),
-                                    Color.white.opacity(0.05)
-                                ]),
-                                startPoint: .top,
-                                endPoint: .bottom
-                            ),
-                            lineWidth: 1
+            ZStack(alignment: .top) {
+                // BACKGROUND
+                RoundedRectangle(cornerRadius: isHovering ? 28 : 16, style: .continuous)
+                    .fill(
+                        LinearGradient(
+                            gradient: Gradient(colors: [Color.black.opacity(0.95), Color.black.opacity(0.98)]),
+                            startPoint: .top, endPoint: .bottom
                         )
-                )
-                .shadow(color: .black.opacity(0.7), radius: 20, x: 0, y: 10)
-            
-            // CONTENT
-            VStack(spacing: 0) {
-                if isHovering {
-                    headerView
-                        .transition(.opacity.combined(with: .scale(scale: 0.9)))
-                    
-                    if activeTab == .nook {
-                        nookDashboardView
-                            .transition(.asymmetric(
-                                insertion: .move(edge: .leading).combined(with: .opacity),
-                                removal: .move(edge: .leading).combined(with: .opacity)
-                            ))
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: isHovering ? 28 : 16, style: .continuous)
+                            .stroke(Color.white.opacity(0.15), lineWidth: 1)
+                    )
+                    .shadow(color: .black.opacity(0.7), radius: 20, x: 0, y: 10)
+                
+                // CONTENT
+                VStack(spacing: 0) {
+                    if isHovering {
+                        headerView
+                            // FIX 1: Use a subtle blur/opacity fade instead of moving
+                            .transition(.opacity.animation(.easeInOut(duration: 0.2)))
+                        
+                        if activeTab == .nook {
+                            nookDashboardView
+                                // FIX 2: Scale + Opacity (Looks like it grows from center)
+                                .transition(.asymmetric(
+                                    insertion: .opacity.combined(with: .scale(scale: 0.95)),
+                                    removal: .opacity
+                                ))
+                        } else {
+                            fileShelfView
+                                // FIX 3: Same subtle pop-in effect
+                                .transition(.asymmetric(
+                                    insertion: .opacity.combined(with: .scale(scale: 0.95)),
+                                    removal: .opacity
+                                ))
+                        }
                     } else {
-                        fileShelfView
-                            .transition(.asymmetric(
-                                insertion: .move(edge: .trailing).combined(with: .opacity),
-                                removal: .move(edge: .trailing).combined(with: .opacity)
-                            ))
+                        collapsedStateView
+                            .transition(.opacity)
                     }
+                }
+                // CRITICAL FIX: Clips content so it doesn't "fly" outside the rounded corners
+                .clipped()
+            }
+            .onHover { hovering in
+                withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                    isHovering = hovering
+                }
+                if hovering && activeTab == .nook && showMirror {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { cameraManager.start() }
                 } else {
-                    collapsedStateView
-                        .transition(.opacity.combined(with: .scale(scale: 0.9)))
+                    cameraManager.stop()
                 }
             }
-        }
-        .onHover { hovering in
-            withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
-                isHovering = hovering
-            }
-            if hovering && activeTab == .nook && showMirror {
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                    cameraManager.start()
-                }
-            } else {
-                cameraManager.stop()
+            .onDrop(of: [.fileURL], isTargeted: $isDropTargeted) { providers in
+                withAnimation { activeTab = .tray; isHovering = true }
+                handleDrop(providers: providers)
+                return true
             }
         }
-        .onDrop(of: [.fileURL], isTargeted: $isDropTargeted) { providers in
-            withAnimation {
-                activeTab = .tray
-                isHovering = true
-            }
-            handleDrop(providers: providers)
-            return true
-        }
-    }
     
     // MARK: - SUBVIEWS
     
