@@ -1,4 +1,3 @@
-
 import SwiftUI
 
 @main
@@ -22,25 +21,27 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     func setupWindow() {
         guard let screen = NSScreen.main else { return }
 
-        // --- FIX STARTS HERE ---
-        // 1. Make the window wider than your max slider value (900px)
+        // Window dimensions
         let windowWidth: CGFloat = 1000
-        
-        // 2. Make height tall enough for the Settings View (which is 500px)
         let windowHeight: CGFloat = 600
 
-        let visible = screen.visibleFrame
+        let fullFrame = screen.frame
         
-        // Center X
-        let xPos = visible.origin.x + (visible.width - windowWidth) / 2
+        // Center horizontally
+        let xPos = fullFrame.origin.x + (fullFrame.width - windowWidth) / 2
         
-        // Top Y (Align to top of screen)
-        let yPos = visible.maxY - windowHeight
+        // Position at absolute top: in macOS coords, top = maxY
+        // We want window top edge at screen top edge
+        // Window's top = origin.y + height, so: origin.y + height = fullFrame.maxY
+        let yPos = fullFrame.maxY - windowHeight
 
         let panelRect = NSRect(x: xPos, y: yPos, width: windowWidth, height: windowHeight)
-        // --- FIX ENDS HERE ---
         
         let panel = NotchPanel(contentRect: panelRect, backing: .buffered, defer: false)
+        
+        // CRITICAL ADDITIONS for top positioning
+        panel.level = .screenSaver  // Higher than .floating to go above menu bar
+        panel.collectionBehavior.insert(.fullScreenPrimary)  // Allow it in the menu bar area
         
         let hostingView = NSHostingView(rootView: ContentView())
         hostingView.layer?.backgroundColor = NSColor.clear.cgColor

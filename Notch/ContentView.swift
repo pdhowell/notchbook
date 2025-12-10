@@ -19,12 +19,12 @@ struct ContentView: View {
     
     // --- STATE ---
     @State private var isHovering = false
-    @State private var activeTab: Tab = .nook
+    @State private var activeTab: Tab = .notch
     @State private var storedFiles: [StoredFile] = []
     @State private var isDropTargeted = false
     @State private var showSettings = false
     
-    enum Tab { case nook, tray }
+    enum Tab { case notch, shelf }
 
     var body: some View {
         GeometryReader { geometry in
@@ -73,7 +73,7 @@ struct ContentView: View {
         .onChange(of: showMirror) { newValue in
             if !newValue {
                 cameraManager.stop()
-            } else if isHovering && activeTab == .nook && cameraManager.isEnabled {
+            } else if isHovering && activeTab == .notch && cameraManager.isEnabled {
                 cameraManager.start()
             }
         }
@@ -93,7 +93,8 @@ struct ContentView: View {
                     RoundedRectangle(cornerRadius: isHovering ? 28 : 16, style: .continuous)
                         .stroke(Color.white.opacity(0.15), lineWidth: 1)
                 )
-                .shadow(color: .black.opacity(0.7), radius: 20, x: 0, y: 10)
+                // Only show the heavy drop shadow when expanded; keep it gone when collapsed
+                .shadow(color: .black.opacity(isHovering ? 0.7 : 0.0), radius: isHovering ? 20 : 0, x: 0, y: isHovering ? 10 : 0)
             
             // CONTENT
             VStack(spacing: 0) {
@@ -101,14 +102,14 @@ struct ContentView: View {
                     headerView
                         .transition(.opacity.animation(.easeInOut(duration: 0.2)))
                     
-                    if activeTab == .nook {
-                        nookDashboardView
+                    if activeTab == .notch {
+                            notchDashboardView
                             .transition(.asymmetric(
                                 insertion: .opacity.combined(with: .scale(scale: 0.95)),
                                 removal: .opacity
                             ))
                     } else {
-                        fileShelfView
+                            fileShelfView
                             .transition(.asymmetric(
                                 insertion: .opacity.combined(with: .scale(scale: 0.95)),
                                 removal: .opacity
@@ -128,7 +129,7 @@ struct ContentView: View {
 
             // Only auto-start camera on hover if the mirror feature is enabled and the user
             // has toggled the camera ON (cameraManager.isEnabled).
-            if hovering && activeTab == .nook && showMirror && cameraManager.isEnabled {
+            if hovering && activeTab == .notch && showMirror && cameraManager.isEnabled {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                     cameraManager.start()
                 }
@@ -149,9 +150,9 @@ struct ContentView: View {
             NotificationCenter.default.post(name: Notification.Name("NotchPanelToggleMouseEvents"), object: nil, userInfo: ["ignore": ignore])
         }
         .onChange(of: activeTab) { newTab in
-            // If user switches to Nook and the notch is already hovered and mirror is enabled,
+            // If user switches to Notch and the notch is already hovered and mirror is enabled,
             // ensure the camera starts (match the onHover behavior).
-            if newTab == .nook && isHovering && showMirror && cameraManager.isEnabled {
+            if newTab == .notch && isHovering && showMirror && cameraManager.isEnabled {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                     cameraManager.start()
                 }
@@ -162,7 +163,7 @@ struct ContentView: View {
         
         .onDrop(of: [.fileURL], isTargeted: $isDropTargeted) { providers in
             withAnimation {
-                activeTab = .tray
+                activeTab = .shelf
                 isHovering = true
             }
             handleDrop(providers: providers)
@@ -174,36 +175,36 @@ struct ContentView: View {
     
     var headerView: some View {
         HStack(spacing: 15) {
-            Button(action: { withAnimation { activeTab = .nook } }) {
+            Button(action: { withAnimation { activeTab = .notch } }) {
                 HStack(spacing: 6) {
                     Image(systemName: "sparkles")
                         .font(.system(size: 13, weight: .semibold))
-                    Text("Nook")
+                    Text("Notch")
                         .font(.system(size: 13, weight: .semibold))
                 }
-                .foregroundColor(activeTab == .nook ? .white : .gray)
+                .foregroundColor(activeTab == .notch ? .white : .gray)
                 .padding(.vertical, 8)
                 .padding(.horizontal, 14)
                 .background(
                     Capsule()
-                        .fill(activeTab == .nook ? Color.white.opacity(0.15) : Color.clear)
+                        .fill(activeTab == .notch ? Color.white.opacity(0.15) : Color.clear)
                 )
             }
             .buttonStyle(PlainButtonStyle())
             
-            Button(action: { withAnimation { activeTab = .tray } }) {
+            Button(action: { withAnimation { activeTab = .shelf } }) {
                 HStack(spacing: 6) {
                     Image(systemName: "tray.2.fill")
                         .font(.system(size: 13, weight: .semibold))
-                    Text("Tray")
+                    Text("Shelf")
                         .font(.system(size: 13, weight: .semibold))
                 }
-                .foregroundColor(activeTab == .tray ? .white : .gray)
+                .foregroundColor(activeTab == .shelf ? .white : .gray)
                 .padding(.vertical, 8)
                 .padding(.horizontal, 14)
                 .background(
                     Capsule()
-                        .fill(activeTab == .tray ? Color.white.opacity(0.15) : Color.clear)
+                        .fill(activeTab == .shelf ? Color.white.opacity(0.15) : Color.clear)
                 )
             }
             .buttonStyle(PlainButtonStyle())
@@ -224,7 +225,7 @@ struct ContentView: View {
         .padding(.bottom, 12)
     }
     
-    var nookDashboardView: some View {
+    var notchDashboardView: some View {
         HStack(spacing: 14) {
             // MEDIA PLAYER
             VStack(alignment: .leading, spacing: 10) {
@@ -496,17 +497,24 @@ struct SettingsView: View {
                     .font(.headline)
                 
                 VStack(alignment: .leading, spacing: 8) {
-                    Text("Width: \(Int(notchWidth))px")
+                    // Minimal label (no exact pixels shown)
+                    Text("Width")
                         .font(.subheadline)
                         .foregroundColor(.secondary)
-                    Slider(value: $notchWidth, in: 500...900, step: 10)
+                    Slider(value: $notchWidth, in: 550...700, step: 40)
+                        .onChange(of: notchWidth) { newValue in
+                            if newValue < 550 { notchWidth = 550 }
+                        }
                 }
                 
                 VStack(alignment: .leading, spacing: 8) {
-                    Text("Height: \(Int(notchHeight))px")
+                    Text("Height")
                         .font(.subheadline)
                         .foregroundColor(.secondary)
-                    Slider(value: $notchHeight, in: 180...300, step: 10)
+                    Slider(value: $notchHeight, in: 220...270, step: 10)
+                        .onChange(of: notchHeight) { newValue in
+                            if newValue < 220 { notchHeight = 220 }
+                        }
                 }
             }
             
@@ -659,343 +667,6 @@ class CameraManager: NSObject, ObservableObject {
         }
     }
 }
-
-
-// MARK: - MEDIA MANAGER CLASS
-//class MediaManager: ObservableObject {
-//    @Published var trackTitle: String = "Not Playing"
-//    @Published var artistName: String = "No media active"
-//    @Published var isPlaying: Bool = false
-//    @Published var albumArt: NSImage? = nil
-//    @Published var appName: String = "Music"
-//    
-//    private var timer: Timer?
-//    
-//    init() {
-//        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-//            self.startListening()
-//        }
-//    }
-//    
-//    deinit {
-//        timer?.invalidate()
-//    }
-//    
-//    func startListening() {
-//        timer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: true) { [weak self] _ in
-//            self?.fetchTrackInfo()
-//        }
-//        fetchTrackInfo()
-//    }
-//    
-//    func fetchTrackInfo() {
-//        DispatchQueue.global(qos: .background).async { [weak self] in
-//            guard let self = self else { return }
-//            
-//            let spotifyScript = """
-//            tell application "Spotify"
-//                if it is running then
-//                    return {player state as string, name of current track, artist of current track, artwork url of current track}
-//                end if
-//            end tell
-//            """
-//            
-//            let musicScript = """
-//            tell application "Music"
-//                if it is running then
-//                    return {player state as string, name of current track, artist of current track}
-//                end if
-//            end tell
-//            """
-//            
-//            if let result = self.runAppleScript(spotifyScript) {
-//                self.appName = "Spotify"
-//                self.parseSpotify(result)
-//            } else if let result = self.runAppleScript(musicScript) {
-//                self.appName = "Music"
-//                self.parseMusic(result)
-//            } else {
-//                DispatchQueue.main.async {
-//                    self.isPlaying = false
-//                    self.trackTitle = "Not Playing"
-//                    self.artistName = "No media active"
-//                    self.albumArt = nil
-//                }
-//            }
-//        }
-//    }
-//    
-//    func togglePlayPause() {
-//        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-//            guard let self = self else { return }
-//            _ = self.runAppleScript("tell application \"\(self.appName)\" to playpause")
-//            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-//                self.fetchTrackInfo()
-//            }
-//        }
-//    }
-//    
-//    func nextTrack() {
-//        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-//            guard let self = self else { return }
-//            _ = self.runAppleScript("tell application \"\(self.appName)\" to next track")
-//            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-//                self.fetchTrackInfo()
-//            }
-//        }
-//    }
-//    
-//    func previousTrack() {
-//        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-//            guard let self = self else { return }
-//            _ = self.runAppleScript("tell application \"\(self.appName)\" to previous track")
-//            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-//                self.fetchTrackInfo()
-//            }
-//        }
-//    }
-//    
-//    private func runAppleScript(_ source: String) -> String? {
-//        var error: NSDictionary?
-//        guard let scriptObject = NSAppleScript(source: source) else { return nil }
-//        
-//        let output = scriptObject.executeAndReturnError(&error)
-//        if error == nil {
-//            if output.descriptorType == typeAEList {
-//                var results: [String] = []
-//                for i in 1...output.numberOfItems {
-//                    if let item = output.atIndex(i)?.stringValue {
-//                        results.append(item)
-//                    }
-//                }
-//                return results.joined(separator: "|||")
-//            }
-//            return output.stringValue
-//        }
-//        return nil
-//    }
-//    
-//    private func parseSpotify(_ result: String) {
-//        let components = result.components(separatedBy: "|||")
-//        guard components.count >= 3 else { return }
-//        
-//        DispatchQueue.main.async {
-//            self.isPlaying = (components[0] == "playing")
-//            self.trackTitle = components[1]
-//            self.artistName = components[2]
-//            
-//            if components.count >= 4, let url = URL(string: components[3]) {
-//                self.downloadArtwork(from: url)
-//            }
-//        }
-//    }
-//    
-//    private func parseMusic(_ result: String) {
-//        let components = result.components(separatedBy: "|||")
-//        guard components.count >= 3 else { return }
-//        
-//        DispatchQueue.main.async {
-//            self.isPlaying = (components[0] == "playing")
-//            self.trackTitle = components[1]
-//            self.artistName = components[2]
-//            self.albumArt = nil
-//        }
-//    }
-//    
-//    private func downloadArtwork(from url: URL) {
-//        URLSession.shared.dataTask(with: url) { [weak self] data, _, _ in
-//            if let data = data, let image = NSImage(data: data) {
-//                DispatchQueue.main.async {
-//                    self?.albumArt = image
-//                }
-//            }
-//        }.resume()
-//    }
-//}
-
-// MARK: - MEDIA MANAGER CLASS (FIXED)
-//class MediaManager: ObservableObject {
-//    @Published var trackTitle: String = "Not Playing"
-//    @Published var artistName: String = "No media active"
-//    @Published var isPlaying: Bool = false
-//    @Published var albumArt: NSImage? = nil
-//    @Published var appName: String = "Music"
-//    
-//    private var timer: Timer?
-//    
-//    init() {
-//        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-//            self.startListening()
-//        }
-//    }
-//    
-//    deinit {
-//        timer?.invalidate()
-//    }
-//    
-//    func startListening() {
-//        // Poll every 1.5 seconds
-//        timer = Timer.scheduledTimer(withTimeInterval: 1.5, repeats: true) { [weak self] _ in
-//            self?.fetchTrackInfo()
-//        }
-//        fetchTrackInfo()
-//    }
-//    
-//    func fetchTrackInfo() {
-//        // 1. Check which app is actually running first using NSRunningApplication.
-//        // This prevents AppleScript from launching the apps if they are closed.
-//        let musicApp = NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.Music").first
-//        let spotifyApp = NSRunningApplication.runningApplications(withBundleIdentifier: "com.spotify.client").first
-//        
-//        // Prioritize Spotify if both are open, or whichever is running
-//        if let spotify = spotifyApp, !spotify.isTerminated {
-//            self.appName = "Spotify"
-//            runSpotifyScript()
-//        } else if let music = musicApp, !music.isTerminated {
-//            self.appName = "Music"
-//            runMusicScript()
-//        } else {
-//            // Neither is running
-//            resetState()
-//        }
-//    }
-//    
-//    private func resetState() {
-//        DispatchQueue.main.async {
-//            self.isPlaying = false
-//            self.trackTitle = "Not Playing"
-//            self.artistName = "No media active"
-//            self.albumArt = nil
-//        }
-//    }
-//
-//    private func runSpotifyScript() {
-//        let script = """
-//        tell application "Spotify"
-//            if player state is playing then
-//                set sState to "playing"
-//            else
-//                set sState to "paused"
-//            end if
-//            return {sState, name of current track, artist of current track, artwork url of current track}
-//        end tell
-//        """
-//        executeScript(script, parseMethod: parseSpotify)
-//    }
-//
-//    private func runMusicScript() {
-//        let script = """
-//        tell application "Music"
-//            if player state is playing then
-//                set pState to "playing"
-//            else
-//                set pState to "paused"
-//            end if
-//            return {pState, name of current track, artist of current track}
-//        end tell
-//        """
-//        executeScript(script, parseMethod: parseMusic)
-//    }
-//    
-//    private func executeScript(_ source: String, parseMethod: @escaping (String) -> Void) {
-//        DispatchQueue.global(qos: .userInitiated).async {
-//            var error: NSDictionary?
-//            if let scriptObject = NSAppleScript(source: source) {
-//                let output = scriptObject.executeAndReturnError(&error)
-//                
-//                if let error = error {
-//                    print("AppleScript Error: \(error)") // <--- CHECK YOUR CONSOLE FOR THIS
-//                    return
-//                }
-//                
-//                // Process Result
-//                var resultString = ""
-//                if output.descriptorType == typeAEList {
-//                    var results: [String] = []
-//                    for i in 1...output.numberOfItems {
-//                        if let item = output.atIndex(i)?.stringValue {
-//                            results.append(item)
-//                        }
-//                    }
-//                    resultString = results.joined(separator: "|||")
-//                } else {
-//                    resultString = output.stringValue ?? ""
-//                }
-//                
-//                parseMethod(resultString)
-//            }
-//        }
-//    }
-//    
-//    func togglePlayPause() {
-//        let script = "tell application \"\(self.appName)\" to playpause"
-//        executeSimpleScript(script)
-//    }
-//    
-//    func nextTrack() {
-//        let script = "tell application \"\(self.appName)\" to next track"
-//        executeSimpleScript(script)
-//    }
-//    
-//    func previousTrack() {
-//        let script = "tell application \"\(self.appName)\" to previous track"
-//        executeSimpleScript(script)
-//    }
-//    
-//    private func executeSimpleScript(_ source: String) {
-//        DispatchQueue.global(qos: .userInitiated).async {
-//            var error: NSDictionary?
-//            if let scriptObject = NSAppleScript(source: source) {
-//                scriptObject.executeAndReturnError(&error)
-//            }
-//            // Update UI immediately after command
-//            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-//                self.fetchTrackInfo()
-//            }
-//        }
-//    }
-//    
-//    private func parseSpotify(_ result: String) {
-//        let components = result.components(separatedBy: "|||")
-//        guard components.count >= 3 else { return }
-//        
-//        DispatchQueue.main.async {
-//            self.isPlaying = (components[0] == "playing")
-//            self.trackTitle = components[1]
-//            self.artistName = components[2]
-//            
-//            if components.count >= 4, let url = URL(string: components[3]) {
-//                // Always attempt to download the artwork URL provided by Spotify.
-//                // Previously we only downloaded when `albumArt` was nil which meant
-//                // the artwork would not update on track change if an image already
-//                // existed. Download unconditionally so the UI reflects the current track.
-//                self.downloadArtwork(from: url)
-//            }
-//        }
-//    }
-//    
-//    private func parseMusic(_ result: String) {
-//        let components = result.components(separatedBy: "|||")
-//        guard components.count >= 3 else { return }
-//        
-//        DispatchQueue.main.async {
-//            self.isPlaying = (components[0] == "playing")
-//            self.trackTitle = components[1]
-//            self.artistName = components[2]
-//            self.albumArt = nil // Music app doesn't provide URL easily via AppleScript
-//        }
-//    }
-//    
-//    private func downloadArtwork(from url: URL) {
-//        URLSession.shared.dataTask(with: url) { [weak self] data, _, _ in
-//            if let data = data, let image = NSImage(data: data) {
-//                DispatchQueue.main.async {
-//                    self?.albumArt = image
-//                }
-//            }
-//        }.resume()
-//    }
-//}
 
 
 // MARK: - MEDIA MANAGER CLASS (FIXED & OPTIMIZED)
