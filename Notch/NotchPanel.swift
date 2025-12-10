@@ -33,7 +33,8 @@ class NotchPanel: NSPanel {
         
         // 5. Allow interaction
         self.acceptsMouseMovedEvents = true
-        self.ignoresMouseEvents = false
+    // Start ignoring mouse events so collapsed notch does not block underlying apps
+    self.ignoresMouseEvents = true
         
         // 6. Lock Window Position (This replaces the need for mouseDragged)
         self.isMovable = false
@@ -46,6 +47,20 @@ class NotchPanel: NSPanel {
         self.standardWindowButton(.zoomButton)?.isHidden = true
         
         setupContentView()
+
+        // Observe collapse/expand notifications from SwiftUI content
+        NotificationCenter.default.addObserver(self, selector: #selector(handleToggleMouseEvents(_:)), name: Notification.Name("NotchPanelToggleMouseEvents"), object: nil)
+    }
+
+    deinit {
+        NotificationCenter.default.removeObserver(self)
+    }
+
+    @objc private func handleToggleMouseEvents(_ notification: Notification) {
+        guard let info = notification.userInfo as? [String: Any], let ignore = info["ignore"] as? Bool else { return }
+        DispatchQueue.main.async {
+            self.ignoresMouseEvents = ignore
+        }
     }
     
     private func setupContentView() {
@@ -82,5 +97,4 @@ class NotchPanel: NSPanel {
     // NOTE: 'mouseDragged' has been removed.
     // 'self.isMovable = false' in init() handles locking the window automatically.
 }
-
 
