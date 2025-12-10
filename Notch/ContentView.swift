@@ -266,21 +266,15 @@ struct ContentView: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 
-                HStack(spacing: 25) {
-                    Button(action: mediaManager.previousTrack) {
-                        Image(systemName: "backward.fill")
-                            .font(.system(size: 16))
-                    }
-                    Button(action: mediaManager.togglePlayPause) {
-                        Image(systemName: mediaManager.isPlaying ? "pause.circle.fill" : "play.circle.fill")
-                            .font(.system(size: 28))
-                    }
-                    Button(action: mediaManager.nextTrack) {
-                        Image(systemName: "forward.fill")
-                            .font(.system(size: 16))
-                    }
+                HStack(spacing: 20) {
+                    // Sleek icon-only controls: use PlainButtonStyle to remove macOS button
+                    // chrome (borders/backgrounds) and add a subtle hover transform.
+                    SleekIconButton(systemName: "backward.fill", size: 16, action: mediaManager.previousTrack)
+
+                    SleekIconButton(systemName: mediaManager.isPlaying ? "pause.circle.fill" : "play.circle.fill", size: 28, action: mediaManager.togglePlayPause)
+
+                    SleekIconButton(systemName: "forward.fill", size: 16, action: mediaManager.nextTrack)
                 }
-                .foregroundColor(.white)
                 .frame(maxWidth: .infinity)
             }
             .padding(16)
@@ -448,10 +442,12 @@ struct ContentView: View {
     // --- LOGIC ---
     func handleDrop(providers: [NSItemProvider]) {
         for provider in providers {
-            provider.loadItem(forTypeIdentifier: UTType.fileURL.identifier, options: nil) { (urlData, error) in
+            provider.loadItem(forTypeIdentifier: UTType.fileURL.identifier, options: nil) { (item, error) in
                 DispatchQueue.main.async {
-                    if let urlData = urlData as? Data,
-                       let url = URL(dataRepresentation: urlData, relativeTo: nil),
+                    // `item` can be various types depending on the provider — cast to Data
+                    // before creating a URL from the data representation.
+                    if let data = item as? Data,
+                       let url = URL(dataRepresentation: data, relativeTo: nil),
                        !storedFiles.contains(where: { $0.url == url }) {
                         withAnimation(.spring(response: 0.3)) {
                             storedFiles.append(StoredFile(url: url))
@@ -666,6 +662,343 @@ class CameraManager: NSObject, ObservableObject {
 
 
 // MARK: - MEDIA MANAGER CLASS
+//class MediaManager: ObservableObject {
+//    @Published var trackTitle: String = "Not Playing"
+//    @Published var artistName: String = "No media active"
+//    @Published var isPlaying: Bool = false
+//    @Published var albumArt: NSImage? = nil
+//    @Published var appName: String = "Music"
+//    
+//    private var timer: Timer?
+//    
+//    init() {
+//        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+//            self.startListening()
+//        }
+//    }
+//    
+//    deinit {
+//        timer?.invalidate()
+//    }
+//    
+//    func startListening() {
+//        timer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: true) { [weak self] _ in
+//            self?.fetchTrackInfo()
+//        }
+//        fetchTrackInfo()
+//    }
+//    
+//    func fetchTrackInfo() {
+//        DispatchQueue.global(qos: .background).async { [weak self] in
+//            guard let self = self else { return }
+//            
+//            let spotifyScript = """
+//            tell application "Spotify"
+//                if it is running then
+//                    return {player state as string, name of current track, artist of current track, artwork url of current track}
+//                end if
+//            end tell
+//            """
+//            
+//            let musicScript = """
+//            tell application "Music"
+//                if it is running then
+//                    return {player state as string, name of current track, artist of current track}
+//                end if
+//            end tell
+//            """
+//            
+//            if let result = self.runAppleScript(spotifyScript) {
+//                self.appName = "Spotify"
+//                self.parseSpotify(result)
+//            } else if let result = self.runAppleScript(musicScript) {
+//                self.appName = "Music"
+//                self.parseMusic(result)
+//            } else {
+//                DispatchQueue.main.async {
+//                    self.isPlaying = false
+//                    self.trackTitle = "Not Playing"
+//                    self.artistName = "No media active"
+//                    self.albumArt = nil
+//                }
+//            }
+//        }
+//    }
+//    
+//    func togglePlayPause() {
+//        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+//            guard let self = self else { return }
+//            _ = self.runAppleScript("tell application \"\(self.appName)\" to playpause")
+//            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+//                self.fetchTrackInfo()
+//            }
+//        }
+//    }
+//    
+//    func nextTrack() {
+//        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+//            guard let self = self else { return }
+//            _ = self.runAppleScript("tell application \"\(self.appName)\" to next track")
+//            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+//                self.fetchTrackInfo()
+//            }
+//        }
+//    }
+//    
+//    func previousTrack() {
+//        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+//            guard let self = self else { return }
+//            _ = self.runAppleScript("tell application \"\(self.appName)\" to previous track")
+//            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+//                self.fetchTrackInfo()
+//            }
+//        }
+//    }
+//    
+//    private func runAppleScript(_ source: String) -> String? {
+//        var error: NSDictionary?
+//        guard let scriptObject = NSAppleScript(source: source) else { return nil }
+//        
+//        let output = scriptObject.executeAndReturnError(&error)
+//        if error == nil {
+//            if output.descriptorType == typeAEList {
+//                var results: [String] = []
+//                for i in 1...output.numberOfItems {
+//                    if let item = output.atIndex(i)?.stringValue {
+//                        results.append(item)
+//                    }
+//                }
+//                return results.joined(separator: "|||")
+//            }
+//            return output.stringValue
+//        }
+//        return nil
+//    }
+//    
+//    private func parseSpotify(_ result: String) {
+//        let components = result.components(separatedBy: "|||")
+//        guard components.count >= 3 else { return }
+//        
+//        DispatchQueue.main.async {
+//            self.isPlaying = (components[0] == "playing")
+//            self.trackTitle = components[1]
+//            self.artistName = components[2]
+//            
+//            if components.count >= 4, let url = URL(string: components[3]) {
+//                self.downloadArtwork(from: url)
+//            }
+//        }
+//    }
+//    
+//    private func parseMusic(_ result: String) {
+//        let components = result.components(separatedBy: "|||")
+//        guard components.count >= 3 else { return }
+//        
+//        DispatchQueue.main.async {
+//            self.isPlaying = (components[0] == "playing")
+//            self.trackTitle = components[1]
+//            self.artistName = components[2]
+//            self.albumArt = nil
+//        }
+//    }
+//    
+//    private func downloadArtwork(from url: URL) {
+//        URLSession.shared.dataTask(with: url) { [weak self] data, _, _ in
+//            if let data = data, let image = NSImage(data: data) {
+//                DispatchQueue.main.async {
+//                    self?.albumArt = image
+//                }
+//            }
+//        }.resume()
+//    }
+//}
+
+// MARK: - MEDIA MANAGER CLASS (FIXED)
+//class MediaManager: ObservableObject {
+//    @Published var trackTitle: String = "Not Playing"
+//    @Published var artistName: String = "No media active"
+//    @Published var isPlaying: Bool = false
+//    @Published var albumArt: NSImage? = nil
+//    @Published var appName: String = "Music"
+//    
+//    private var timer: Timer?
+//    
+//    init() {
+//        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+//            self.startListening()
+//        }
+//    }
+//    
+//    deinit {
+//        timer?.invalidate()
+//    }
+//    
+//    func startListening() {
+//        // Poll every 1.5 seconds
+//        timer = Timer.scheduledTimer(withTimeInterval: 1.5, repeats: true) { [weak self] _ in
+//            self?.fetchTrackInfo()
+//        }
+//        fetchTrackInfo()
+//    }
+//    
+//    func fetchTrackInfo() {
+//        // 1. Check which app is actually running first using NSRunningApplication.
+//        // This prevents AppleScript from launching the apps if they are closed.
+//        let musicApp = NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.Music").first
+//        let spotifyApp = NSRunningApplication.runningApplications(withBundleIdentifier: "com.spotify.client").first
+//        
+//        // Prioritize Spotify if both are open, or whichever is running
+//        if let spotify = spotifyApp, !spotify.isTerminated {
+//            self.appName = "Spotify"
+//            runSpotifyScript()
+//        } else if let music = musicApp, !music.isTerminated {
+//            self.appName = "Music"
+//            runMusicScript()
+//        } else {
+//            // Neither is running
+//            resetState()
+//        }
+//    }
+//    
+//    private func resetState() {
+//        DispatchQueue.main.async {
+//            self.isPlaying = false
+//            self.trackTitle = "Not Playing"
+//            self.artistName = "No media active"
+//            self.albumArt = nil
+//        }
+//    }
+//
+//    private func runSpotifyScript() {
+//        let script = """
+//        tell application "Spotify"
+//            if player state is playing then
+//                set sState to "playing"
+//            else
+//                set sState to "paused"
+//            end if
+//            return {sState, name of current track, artist of current track, artwork url of current track}
+//        end tell
+//        """
+//        executeScript(script, parseMethod: parseSpotify)
+//    }
+//
+//    private func runMusicScript() {
+//        let script = """
+//        tell application "Music"
+//            if player state is playing then
+//                set pState to "playing"
+//            else
+//                set pState to "paused"
+//            end if
+//            return {pState, name of current track, artist of current track}
+//        end tell
+//        """
+//        executeScript(script, parseMethod: parseMusic)
+//    }
+//    
+//    private func executeScript(_ source: String, parseMethod: @escaping (String) -> Void) {
+//        DispatchQueue.global(qos: .userInitiated).async {
+//            var error: NSDictionary?
+//            if let scriptObject = NSAppleScript(source: source) {
+//                let output = scriptObject.executeAndReturnError(&error)
+//                
+//                if let error = error {
+//                    print("AppleScript Error: \(error)") // <--- CHECK YOUR CONSOLE FOR THIS
+//                    return
+//                }
+//                
+//                // Process Result
+//                var resultString = ""
+//                if output.descriptorType == typeAEList {
+//                    var results: [String] = []
+//                    for i in 1...output.numberOfItems {
+//                        if let item = output.atIndex(i)?.stringValue {
+//                            results.append(item)
+//                        }
+//                    }
+//                    resultString = results.joined(separator: "|||")
+//                } else {
+//                    resultString = output.stringValue ?? ""
+//                }
+//                
+//                parseMethod(resultString)
+//            }
+//        }
+//    }
+//    
+//    func togglePlayPause() {
+//        let script = "tell application \"\(self.appName)\" to playpause"
+//        executeSimpleScript(script)
+//    }
+//    
+//    func nextTrack() {
+//        let script = "tell application \"\(self.appName)\" to next track"
+//        executeSimpleScript(script)
+//    }
+//    
+//    func previousTrack() {
+//        let script = "tell application \"\(self.appName)\" to previous track"
+//        executeSimpleScript(script)
+//    }
+//    
+//    private func executeSimpleScript(_ source: String) {
+//        DispatchQueue.global(qos: .userInitiated).async {
+//            var error: NSDictionary?
+//            if let scriptObject = NSAppleScript(source: source) {
+//                scriptObject.executeAndReturnError(&error)
+//            }
+//            // Update UI immediately after command
+//            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+//                self.fetchTrackInfo()
+//            }
+//        }
+//    }
+//    
+//    private func parseSpotify(_ result: String) {
+//        let components = result.components(separatedBy: "|||")
+//        guard components.count >= 3 else { return }
+//        
+//        DispatchQueue.main.async {
+//            self.isPlaying = (components[0] == "playing")
+//            self.trackTitle = components[1]
+//            self.artistName = components[2]
+//            
+//            if components.count >= 4, let url = URL(string: components[3]) {
+//                // Always attempt to download the artwork URL provided by Spotify.
+//                // Previously we only downloaded when `albumArt` was nil which meant
+//                // the artwork would not update on track change if an image already
+//                // existed. Download unconditionally so the UI reflects the current track.
+//                self.downloadArtwork(from: url)
+//            }
+//        }
+//    }
+//    
+//    private func parseMusic(_ result: String) {
+//        let components = result.components(separatedBy: "|||")
+//        guard components.count >= 3 else { return }
+//        
+//        DispatchQueue.main.async {
+//            self.isPlaying = (components[0] == "playing")
+//            self.trackTitle = components[1]
+//            self.artistName = components[2]
+//            self.albumArt = nil // Music app doesn't provide URL easily via AppleScript
+//        }
+//    }
+//    
+//    private func downloadArtwork(from url: URL) {
+//        URLSession.shared.dataTask(with: url) { [weak self] data, _, _ in
+//            if let data = data, let image = NSImage(data: data) {
+//                DispatchQueue.main.async {
+//                    self?.albumArt = image
+//                }
+//            }
+//        }.resume()
+//    }
+//}
+
+
+// MARK: - MEDIA MANAGER CLASS (FIXED & OPTIMIZED)
 class MediaManager: ObservableObject {
     @Published var trackTitle: String = "Not Playing"
     @Published var artistName: String = "No media active"
@@ -674,6 +1007,8 @@ class MediaManager: ObservableObject {
     @Published var appName: String = "Music"
     
     private var timer: Timer?
+    // We use this to detect if the song changed so we don't re-download art constantly
+    private var currentTrackIdentifier: String = ""
     
     init() {
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
@@ -686,123 +1021,183 @@ class MediaManager: ObservableObject {
     }
     
     func startListening() {
-        timer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: true) { [weak self] _ in
+        // Poll every 1.5 seconds
+        timer = Timer.scheduledTimer(withTimeInterval: 1.5, repeats: true) { [weak self] _ in
             self?.fetchTrackInfo()
         }
         fetchTrackInfo()
     }
     
     func fetchTrackInfo() {
-        DispatchQueue.global(qos: .background).async { [weak self] in
-            guard let self = self else { return }
-            
-            let spotifyScript = """
-            tell application "Spotify"
-                if it is running then
-                    return {player state as string, name of current track, artist of current track, artwork url of current track}
-                end if
-            end tell
-            """
-            
-            let musicScript = """
-            tell application "Music"
-                if it is running then
-                    return {player state as string, name of current track, artist of current track}
-                end if
-            end tell
-            """
-            
-            if let result = self.runAppleScript(spotifyScript) {
-                self.appName = "Spotify"
-                self.parseSpotify(result)
-            } else if let result = self.runAppleScript(musicScript) {
-                self.appName = "Music"
-                self.parseMusic(result)
-            } else {
-                DispatchQueue.main.async {
-                    self.isPlaying = false
-                    self.trackTitle = "Not Playing"
-                    self.artistName = "No media active"
-                    self.albumArt = nil
-                }
-            }
-        }
-    }
-    
-    func togglePlayPause() {
-        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-            guard let self = self else { return }
-            _ = self.runAppleScript("tell application \"\(self.appName)\" to playpause")
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-                self.fetchTrackInfo()
-            }
-        }
-    }
-    
-    func nextTrack() {
-        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-            guard let self = self else { return }
-            _ = self.runAppleScript("tell application \"\(self.appName)\" to next track")
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                self.fetchTrackInfo()
-            }
-        }
-    }
-    
-    func previousTrack() {
-        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-            guard let self = self else { return }
-            _ = self.runAppleScript("tell application \"\(self.appName)\" to previous track")
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                self.fetchTrackInfo()
-            }
-        }
-    }
-    
-    private func runAppleScript(_ source: String) -> String? {
-        var error: NSDictionary?
-        guard let scriptObject = NSAppleScript(source: source) else { return nil }
+        let musicApp = NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.Music").first
+        let spotifyApp = NSRunningApplication.runningApplications(withBundleIdentifier: "com.spotify.client").first
         
-        let output = scriptObject.executeAndReturnError(&error)
-        if error == nil {
-            if output.descriptorType == typeAEList {
-                var results: [String] = []
-                for i in 1...output.numberOfItems {
-                    if let item = output.atIndex(i)?.stringValue {
-                        results.append(item)
-                    }
-                }
-                return results.joined(separator: "|||")
-            }
-            return output.stringValue
+        if let spotify = spotifyApp, !spotify.isTerminated {
+            self.appName = "Spotify"
+            runSpotifyScript()
+        } else if let music = musicApp, !music.isTerminated {
+            self.appName = "Music"
+            runMusicScript()
+        } else {
+            resetState()
         }
-        return nil
+    }
+    
+    private func resetState() {
+        if !currentTrackIdentifier.isEmpty {
+            DispatchQueue.main.async {
+                self.isPlaying = false
+                self.trackTitle = "Not Playing"
+                self.artistName = "No media active"
+                self.albumArt = nil
+                self.currentTrackIdentifier = ""
+            }
+        }
+    }
+
+    // MARK: - Spotify Logic
+    private func runSpotifyScript() {
+        let script = """
+        tell application "Spotify"
+            if player state is playing then
+                set sState to "playing"
+            else
+                set sState to "paused"
+            end if
+            -- We get the ID to know if the song changed
+            return {sState, name of current track, artist of current track, id of current track, artwork url of current track}
+        end tell
+        """
+        executeScript(script, parseMethod: parseSpotify)
     }
     
     private func parseSpotify(_ result: String) {
         let components = result.components(separatedBy: "|||")
-        guard components.count >= 3 else { return }
+        // We expect: State, Name, Artist, ID, URL
+        guard components.count >= 4 else { return }
+        
+        let newState = components[0]
+        let newTitle = components[1]
+        let newArtist = components[2]
+        let newID = components[3]
         
         DispatchQueue.main.async {
-            self.isPlaying = (components[0] == "playing")
-            self.trackTitle = components[1]
-            self.artistName = components[2]
+            self.isPlaying = (newState == "playing")
+            self.trackTitle = newTitle
+            self.artistName = newArtist
             
-            if components.count >= 4, let url = URL(string: components[3]) {
-                self.downloadArtwork(from: url)
+            // Only fetch artwork if the song ID changed
+            if self.currentTrackIdentifier != newID {
+                self.currentTrackIdentifier = newID
+                self.albumArt = nil // Clear old art
+                
+                if components.count >= 5 {
+                    let urlString = components[4]
+                    if let url = URL(string: urlString) {
+                        self.downloadArtwork(from: url)
+                    }
+                }
             }
         }
+    }
+
+    // MARK: - Apple Music Logic
+    private func runMusicScript() {
+        let script = """
+        tell application "Music"
+            if player state is playing then
+                set pState to "playing"
+            else
+                set pState to "paused"
+            end if
+            -- Music doesn't have a simple ID, so we make one from name+artist
+            return {pState, name of current track, artist of current track}
+        end tell
+        """
+        executeScript(script, parseMethod: parseMusic)
     }
     
     private func parseMusic(_ result: String) {
         let components = result.components(separatedBy: "|||")
         guard components.count >= 3 else { return }
         
+        let newState = components[0]
+        let newTitle = components[1]
+        let newArtist = components[2]
+        
+        // Create a unique signature for this song
+        let newID = "\(newTitle)-\(newArtist)"
+        
         DispatchQueue.main.async {
-            self.isPlaying = (components[0] == "playing")
-            self.trackTitle = components[1]
-            self.artistName = components[2]
-            self.albumArt = nil
+            self.isPlaying = (newState == "playing")
+            self.trackTitle = newTitle
+            self.artistName = newArtist
+            
+            // Only fetch artwork if the song changed
+            if self.currentTrackIdentifier != newID {
+                self.currentTrackIdentifier = newID
+                self.albumArt = nil // Clear old art
+                // Fetch the raw data specifically for Music app
+                self.fetchMusicArtwork()
+            }
+        }
+    }
+    
+    private func fetchMusicArtwork() {
+        // Apple Music holds raw data, not a URL. We must grab the 'data' descriptor.
+        DispatchQueue.global(qos: .userInitiated).async {
+            let scriptSource = "tell application \"Music\" to get data of artwork 1 of current track"
+            if let scriptObject = NSAppleScript(source: scriptSource) {
+                var error: NSDictionary?
+                let output = scriptObject.executeAndReturnError(&error)
+                
+                // output.data is the raw image data (TIFF/JPEG)
+                if error == nil {
+                    // `output.data` may be a non-optional Data in some SDK versions; avoid
+                    // using optional-binding on a non-optional. Use a plain let and
+                    // construct the NSImage (which itself is failable).
+                    let artData = output.data
+                    if let image = NSImage(data: artData) {
+                        DispatchQueue.main.async {
+                            self.albumArt = image
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // MARK: - Common Helpers
+    private func executeScript(_ source: String, parseMethod: @escaping (String) -> Void) {
+        DispatchQueue.global(qos: .userInitiated).async {
+            var error: NSDictionary?
+            if let scriptObject = NSAppleScript(source: source) {
+                let output = scriptObject.executeAndReturnError(&error)
+                
+                if let error = error {
+                    print("AppleScript Error: \(error)")
+                    return
+                }
+                
+                var resultString = ""
+                if output.descriptorType == typeAEList {
+                    var results: [String] = []
+                    for i in 1...output.numberOfItems {
+                        // handle standard text items
+                        if let item = output.atIndex(i)?.stringValue {
+                            results.append(item)
+                        } else {
+                            // If an item is missing/null
+                            results.append("")
+                        }
+                    }
+                    resultString = results.joined(separator: "|||")
+                } else {
+                    resultString = output.stringValue ?? ""
+                }
+                
+                parseMethod(resultString)
+            }
         }
     }
     
@@ -814,6 +1209,31 @@ class MediaManager: ObservableObject {
                 }
             }
         }.resume()
+    }
+    
+    // MARK: - Controls
+    func togglePlayPause() {
+        executeSimpleScript("tell application \"\(self.appName)\" to playpause")
+    }
+    
+    func nextTrack() {
+        executeSimpleScript("tell application \"\(self.appName)\" to next track")
+    }
+    
+    func previousTrack() {
+        executeSimpleScript("tell application \"\(self.appName)\" to previous track")
+    }
+    
+    private func executeSimpleScript(_ source: String) {
+        DispatchQueue.global(qos: .userInitiated).async {
+            var error: NSDictionary?
+            if let scriptObject = NSAppleScript(source: source) {
+                scriptObject.executeAndReturnError(&error)
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                self.fetchTrackInfo()
+            }
+        }
     }
 }
 
@@ -892,6 +1312,30 @@ struct FileItemView: View {
         .onDrag {
             NSItemProvider(object: file.url as NSURL)
         }
+    }
+}
+
+// MARK: - Sleek icon button used for media controls
+struct SleekIconButton: View {
+    let systemName: String
+    let size: CGFloat
+    let action: () -> Void
+
+    @State private var hovering = false
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: systemName)
+                .font(.system(size: size))
+                .foregroundColor(.white)
+                .opacity(hovering ? 1.0 : 0.9)
+                .scaleEffect(hovering ? 1.05 : 1.0)
+                .animation(.spring(response: 0.18, dampingFraction: 0.7), value: hovering)
+        }
+        .buttonStyle(PlainButtonStyle())
+        .onHover { self.hovering = $0 }
+        .padding(.vertical, 4)
+        .frame(minWidth: size + 8, minHeight: size + 8)
     }
 }
 
