@@ -73,7 +73,7 @@ struct ContentView: View {
         .onChange(of: showMirror) { newValue in
             if !newValue {
                 cameraManager.stop()
-            } else if isHovering && activeTab == .nook {
+            } else if isHovering && activeTab == .nook && cameraManager.isEnabled {
                 cameraManager.start()
             }
         }
@@ -125,8 +125,10 @@ struct ContentView: View {
             withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
                 isHovering = hovering
             }
-            
-            if hovering && activeTab == .nook && showMirror {
+
+            // Only auto-start camera on hover if the mirror feature is enabled and the user
+            // has toggled the camera ON (cameraManager.isEnabled).
+            if hovering && activeTab == .nook && showMirror && cameraManager.isEnabled {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                     cameraManager.start()
                 }
@@ -149,7 +151,7 @@ struct ContentView: View {
         .onChange(of: activeTab) { newTab in
             // If user switches to Nook and the notch is already hovered and mirror is enabled,
             // ensure the camera starts (match the onHover behavior).
-            if newTab == .nook && isHovering && showMirror {
+            if newTab == .nook && isHovering && showMirror && cameraManager.isEnabled {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                     cameraManager.start()
                 }
@@ -318,7 +320,7 @@ struct ContentView: View {
             if showMirror {
                 ZStack {
                     if cameraManager.isAuthorized {
-                        ZStack(alignment: .topTrailing) {
+                        ZStack {
                             CameraPreviewView(cameraSession: cameraManager)
                                 .aspectRatio(contentMode: .fill)
                                 .frame(width: 100, height: 100)
@@ -328,28 +330,40 @@ struct ContentView: View {
                                         .stroke(Color.white.opacity(0.2), lineWidth: 2)
                                 )
                                 .shadow(color: .black.opacity(0.3), radius: 10)
+                                .contentShape(Circle())
+                                .onTapGesture {
+                                    // If camera is currently enabled, tapping the preview will turn it off
+                                    if cameraManager.isEnabled {
+                                        cameraManager.isEnabled = false
+                                        cameraManager.stop()
+                                    }
+                                }
 
-                            // Sleek on/off toggle for camera mirror
-                            Button(action: {
-                                if cameraManager.isRunning {
-                                    cameraManager.stop()
-                                } else {
-                                    cameraManager.start()
+                            // Centered camera-on toggle UI when OFF: shows camera icon with label
+                            if !cameraManager.isEnabled {
+                                Button(action: {
+                                    // Toggle ON: enable and request permission/start
+                                    cameraManager.isEnabled = true
+                                    if cameraManager.isAuthorized {
+                                        cameraManager.start()
+                                    } else {
+                                        cameraManager.requestPermission()
+                                    }
+                                }) {
+                                    VStack(spacing: 6) {
+                                        Image(systemName: "camera")
+                                            .font(.system(size: 20, weight: .semibold))
+                                            .foregroundColor(.white)
+                                        Text("Camera")
+                                            .font(.caption2)
+                                            .foregroundColor(.white)
+                                    }
+                                    .padding(.vertical, 8)
+                                    .padding(.horizontal, 14)
+                                    .background(RoundedRectangle(cornerRadius: 20).fill(Color.black.opacity(0.45)))
                                 }
-                            }) {
-                                ZStack {
-                                    Circle()
-                                        .fill(Color.black.opacity(0.45))
-                                        .frame(width: 30, height: 30)
-                                        .overlay(Circle().stroke(Color.white.opacity(0.12), lineWidth: 0.6))
-                                    Image(systemName: cameraManager.isRunning ? "power" : "camera.fill")
-                                        .font(.system(size: 12, weight: .semibold))
-                                        .foregroundColor(cameraManager.isRunning ? .green : .white)
-                                }
+                                .buttonStyle(PlainButtonStyle())
                             }
-                            .buttonStyle(PlainButtonStyle())
-                            .padding(8)
-                            .help(cameraManager.isRunning ? "Turn camera off" : "Turn camera on")
                         }
                     } else {
                         Button(action: {
@@ -547,6 +561,7 @@ class CameraManager: NSObject, ObservableObject {
     @Published var session = AVCaptureSession()
     @Published var isAuthorized = false
     @Published var isRunning: Bool = false
+        @Published var isEnabled: Bool = false
     
     override init() {
         super.init()
@@ -582,7 +597,10 @@ class CameraManager: NSObject, ObservableObject {
                 self.isAuthorized = granted
                 if granted {
                     self.setupSession()
-                    self.start()
+                    // If user requested permission as part of toggling on, start only if enabled
+                    if self.isEnabled {
+                        self.start()
+                    }
                 }
             }
         }
