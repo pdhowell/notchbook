@@ -1006,6 +1006,17 @@ struct ContentView: View {
             let ignore = !(isHovering || newValue)
             NotificationCenter.default.post(name: Notification.Name("NotchPanelToggleMouseEvents"), object: nil, userInfo: ["ignore": ignore])
         }
+        .onChange(of: activeTab) { newTab in
+            // If user switches to Nook and the notch is already hovered and mirror is enabled,
+            // ensure the camera starts (match the onHover behavior).
+            if newTab == .nook && isHovering && showMirror {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    cameraManager.start()
+                }
+            } else {
+                cameraManager.stop()
+            }
+        }
         
         .onDrop(of: [.fileURL], isTargeted: $isDropTargeted) { providers in
             withAnimation {
@@ -1167,7 +1178,7 @@ struct ContentView: View {
             if showMirror {
                 ZStack {
                     if cameraManager.isAuthorized {
-                        CameraPreviewView(cameraManager: cameraManager)
+                        CameraPreviewView(cameraSession: cameraManager)
                             .aspectRatio(contentMode: .fill)
                             .frame(width: 100, height: 100)
                             .clipShape(Circle())
@@ -1464,6 +1475,7 @@ class CameraManager: NSObject, ObservableObject {
     }
 }
 
+
 // MARK: - MEDIA MANAGER CLASS
 class MediaManager: ObservableObject {
     @Published var trackTitle: String = "Not Playing"
@@ -1695,24 +1707,54 @@ struct FileItemView: View {
 }
 
 struct CameraPreviewView: NSViewRepresentable {
-    @ObservedObject var cameraManager: CameraManager
-    
+    // Use the project's CameraManager which exposes an AVCaptureSession
+    @ObservedObject var cameraSession: CameraManager // provides `session: AVCaptureSession`
+
     func makeNSView(context: Context) -> NSView {
+        // 1. Create a basic NSView that is layer-backed
         let view = NSView()
         view.wantsLayer = true
         
-        let previewLayer = AVCaptureVideoPreviewLayer(session: cameraManager.session)
-        previewLayer.videoGravity = .resizeAspectFill
-        previewLayer.connection?.isVideoMirrored = true
-        previewLayer.autoresizingMask = [.layerWidthSizable, .layerHeightSizable]
+        // 2. Create the preview layer using the session
+        // Note: Access the session from your manager or property
+        let previewLayer = AVCaptureVideoPreviewLayer(session: cameraSession.session)
         
+        // 3. Configure the layer appearance
+    previewLayer.videoGravity = AVLayerVideoGravity.resizeAspectFill
+    previewLayer.frame = view.bounds
+    // Use CA layer autoresizing masks for CALayer
+    previewLayer.autoresizingMask = [.layerWidthSizable, .layerHeightSizable]
+        
+        // 4. Add the layer to the view
         view.layer = previewLayer
+        
+        // 5. CRITICAL FIX: Configure the connection immediately after creation
+        setupConnection(for: previewLayer)
+        
         return view
     }
-    
+
     func updateNSView(_ nsView: NSView, context: Context) {
+        // Ensure the frame updates if the window resizes
         if let layer = nsView.layer as? AVCaptureVideoPreviewLayer {
             layer.frame = nsView.bounds
+            
+            // Re-check connection settings in case they reset (rare but safe)
+            setupConnection(for: layer)
+        }
+    }
+
+    // MARK: - The Fix
+    private func setupConnection(for previewLayer: AVCaptureVideoPreviewLayer) {
+        // We must check if the connection exists (it might be nil momentarily during startup)
+        guard let connection = previewLayer.connection else { return }
+        
+        if connection.isVideoMirroringSupported {
+            // Disable automatic mirroring adjustments, then set mirroring explicitly
+            if connection.responds(to: Selector(("setAutomaticallyAdjustsVideoMirroring:"))) {
+                connection.automaticallyAdjustsVideoMirroring = false
+            }
+            connection.isVideoMirrored = true
         }
     }
 }
