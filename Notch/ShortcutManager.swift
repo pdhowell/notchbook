@@ -120,10 +120,24 @@ class ShortcutManager: ObservableObject {
             
             // Check if already running
             if let runningApp = apps.first(where: { $0.localizedName == appName }) {
-                runningApp.activate(options: .activateIgnoringOtherApps)
+                // activateIgnoringOtherApps is deprecated; activating with empty options
+                // is sufficient and future-proof.
+                runningApp.activate(options: [])
             } else {
-                // Try to launch
-                workspace.launchApplication(appName)
+                // Try to launch using modern API. Prefer resolving the full path
+                // first, falling back to opening the application bundle URL.
+                if let path = workspace.fullPath(forApplication: appName) {
+                    let appURL = URL(fileURLWithPath: path)
+                    let config = NSWorkspace.OpenConfiguration()
+                    workspace.openApplication(at: appURL, configuration: config, completionHandler: nil)
+                } else if let appURL = workspace.urlForApplication(withBundleIdentifier: getBundleIdentifier(for: appName)),
+                          FileManager.default.fileExists(atPath: appURL.path) {
+                    let config = NSWorkspace.OpenConfiguration()
+                    workspace.openApplication(at: appURL, configuration: config, completionHandler: nil)
+                } else {
+                    // Last resort: try the old helper which may still work on some systems.
+                    workspace.launchApplication(appName)
+                }
             }
         }
     }

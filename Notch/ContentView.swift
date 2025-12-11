@@ -70,7 +70,7 @@ struct ContentView: View {
                 }
             }
         }
-        .onChange(of: showMirror) { newValue in
+        .onChange(of: showMirror) { _, newValue in
             if !newValue {
                 cameraManager.stop()
             } else if isHovering && activeTab == .notch && cameraManager.isEnabled {
@@ -137,19 +137,28 @@ struct ContentView: View {
                 cameraManager.stop()
             }
         }
-        .onChange(of: isHovering) { newValue in
+        .onChange(of: isHovering) { _, newValue in
             // When collapsed (isHovering == false) instruct the panel to ignore mouse events
             // But keep the panel interactive if settings are visible.
             let ignore = !(newValue || showSettings)
             NotificationCenter.default.post(name: Notification.Name("NotchPanelToggleMouseEvents"), object: nil, userInfo: ["ignore": ignore])
         }
 
-        .onChange(of: showSettings) { newValue in
+        .onChange(of: showSettings) { _, newValue in
+            // When opening settings we want the notch to collapse initially so the
+            // Settings panel stands out — but hovering over the notch should still
+            // expand it again. So force `isHovering = false` when settings open.
+            if newValue {
+                withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
+                    isHovering = false
+                }
+            }
+
             // Ensure the panel accepts mouse events while settings are shown so the settings UI is usable.
             let ignore = !(isHovering || newValue)
             NotificationCenter.default.post(name: Notification.Name("NotchPanelToggleMouseEvents"), object: nil, userInfo: ["ignore": ignore])
         }
-        .onChange(of: activeTab) { newTab in
+        .onChange(of: activeTab) { _, newTab in
             // If user switches to Notch and the notch is already hovered and mirror is enabled,
             // ensure the camera starts (match the onHover behavior).
             if newTab == .notch && isHovering && showMirror && cameraManager.isEnabled {
@@ -502,7 +511,7 @@ struct SettingsView: View {
                         .font(.subheadline)
                         .foregroundColor(.secondary)
                     Slider(value: $notchWidth, in: 550...700, step: 40)
-                        .onChange(of: notchWidth) { newValue in
+                        .onChange(of: notchWidth) { _, newValue in
                             if newValue < 550 { notchWidth = 550 }
                         }
                 }
@@ -512,7 +521,7 @@ struct SettingsView: View {
                         .font(.subheadline)
                         .foregroundColor(.secondary)
                     Slider(value: $notchHeight, in: 220...270, step: 10)
-                        .onChange(of: notchHeight) { newValue in
+                        .onChange(of: notchHeight) { _, newValue in
                             if newValue < 220 { notchHeight = 220 }
                         }
                 }

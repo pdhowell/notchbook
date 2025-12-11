@@ -52,3 +52,4 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         self.window = panel
     }
 }
+
