@@ -33,7 +33,7 @@ struct ContentView: View {
                 VStack(spacing: 0) {
                     notchContent
                         .frame(
-                            width: isHovering ? CGFloat(notchWidth) : 180,
+                            width: isHovering ? CGFloat(notchWidth) : 220,
                             height: isHovering ? CGFloat(notchHeight) : 32
                         )
                         .fixedSize()
@@ -70,6 +70,7 @@ struct ContentView: View {
                 }
             }
         }
+        .padding(.top, 6)
         .onChange(of: showMirror) { _, newValue in
             if !newValue {
                 cameraManager.stop()

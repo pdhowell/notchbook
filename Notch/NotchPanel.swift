@@ -108,22 +108,26 @@ class NotchPanel: NSPanel {
         // (just under the system notch / menu bar), macOS may prevent global drag
         // monitors from firing reliably; in that case we should NOT enable
         // passthrough (ignoresMouseEvents) so drag-and-drop onto the panel works.
-        if let screen = self.screen {
-            // Compare panel top to screen visible top (visibleFrame.maxY). If the
-            // panel's top is within a few pixels of the visible top, consider it
-            // 'at the top edge'.
-            let panelTop = self.frame.maxY
-            let topY = screen.visibleFrame.maxY
-            let distance = abs(panelTop - topY)
-            if distance <= 12 {
-                // Don't ignore clicks when the panel sits at the top edge.
-                ignore = false
-            }
-        }
+        // if let screen = self.screen {
+        //     // Compare panel top to screen visible top (visibleFrame.maxY). If the
+        //     // panel's top is within a few pixels of the visible top, consider it
+        //     // 'at the top edge'.
+        //     // let panelTop = self.frame.maxY
+        //     // let topY = screen.visibleFrame.maxY
+        //     // let distance = abs(panelTop - topY)
+        //     // if distance <= 12 {
+        //     //     // Don't ignore clicks when the panel sits at the top edge.
+        //     //     ignore = false
+        //     // }
+        // }
 
-        if self.ignoresMouseEvents != ignore {
-            self.ignoresMouseEvents = ignore
-        }
+        // if self.ignoresMouseEvents != ignore {
+        //     self.ignoresMouseEvents = ignore
+        // }
+
+        self.ignoresMouseEvents = ignore
+
+        
     }
     
     private func setupContentView() {
