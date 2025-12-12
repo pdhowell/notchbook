@@ -83,7 +83,8 @@ struct ContentView: View {
     var notchContent: some View {
         ZStack(alignment: .top) {
             // BACKGROUND
-            RoundedRectangle(cornerRadius: isHovering ? 28 : 16, style: .continuous)
+            // Increase the bottom corner radius when expanded (isHovering) for a softer look
+            BottomRoundedRectangle(bottomRadius: isHovering ? 24 : 12)
                 .fill(
                     LinearGradient(
                         gradient: Gradient(colors: [Color.black.opacity(0.95), Color.black.opacity(0.98)]),
@@ -91,7 +92,7 @@ struct ContentView: View {
                     )
                 )
                 .overlay(
-                    RoundedRectangle(cornerRadius: isHovering ? 28 : 16, style: .continuous)
+                    BottomRoundedRectangle(bottomRadius: isHovering ? 24 : 12)
                         .stroke(Color.white.opacity(0.15), lineWidth: 1)
                 )
                 // Only show the heavy drop shadow when expanded; keep it gone when collapsed
@@ -1017,6 +1018,40 @@ struct SleekIconButton: View {
         .onHover { self.hovering = $0 }
         .padding(.vertical, 4)
         .frame(minWidth: size + 8, minHeight: size + 8)
+    }
+}
+
+// Custom shape: only the bottom corners are rounded; top corners are square.
+struct BottomRoundedRectangle: Shape {
+    var bottomRadius: CGFloat = 12
+
+    func path(in rect: CGRect) -> Path {
+        let minX = rect.minX
+        let maxX = rect.maxX
+        let minY = rect.minY
+        let maxY = rect.maxY
+        let br = min(bottomRadius, min(rect.width / 2, rect.height / 2))
+
+        var path = Path()
+        // Start at top-left
+        path.move(to: CGPoint(x: minX, y: minY))
+        // Top edge to top-right
+        path.addLine(to: CGPoint(x: maxX, y: minY))
+        // Down right edge to where arc starts
+        path.addLine(to: CGPoint(x: maxX, y: maxY - br))
+        // Bottom-right arc (quarter circle)
+        path.addArc(center: CGPoint(x: maxX - br, y: maxY - br), radius: br,
+                    startAngle: Angle(degrees: 0), endAngle: Angle(degrees: 90), clockwise: false)
+        // Bottom edge to bottom-left arc start
+        path.addLine(to: CGPoint(x: minX + br, y: maxY))
+        // Bottom-left arc
+        path.addArc(center: CGPoint(x: minX + br, y: maxY - br), radius: br,
+                    startAngle: Angle(degrees: 90), endAngle: Angle(degrees: 180), clockwise: false)
+        // Up left edge back to top-left
+        path.addLine(to: CGPoint(x: minX, y: minY))
+        path.closeSubpath()
+
+        return path
     }
 }
 
