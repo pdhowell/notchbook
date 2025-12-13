@@ -24,16 +24,12 @@ class ShortcutManager: ObservableObject {
     
     init() {
         loadShortcuts()
-        
+
         // Add comprehensive default shortcuts if empty
         if shortcuts.isEmpty {
+            // Default shortcuts: put the four primary shortcuts first so the UI shows
+            // Finder, Safari, Screenshot and System Settings in the main view.
             shortcuts = [
-                ShortcutItem(
-                    name: "Screenshot",
-                    iconName: "camera.viewfinder",
-                    actionURL: "screencapture",
-                    actionType: .application
-                ),
                 ShortcutItem(
                     name: "Finder",
                     iconName: "folder.fill",
@@ -47,6 +43,20 @@ class ShortcutManager: ObservableObject {
                     actionType: .application
                 ),
                 ShortcutItem(
+                    name: "Screenshot",
+                    iconName: "camera.viewfinder",
+                    actionURL: "screencapture",
+                    actionType: .application
+                ),
+                ShortcutItem(
+                    name: "System Settings",
+                    // Use the app's sparkles motif so the settings shortcut visually matches the app logo
+                    iconName: "sparkles",
+                    actionURL: "System Settings",
+                    actionType: .application
+                ),
+                // Additional extras (kept for users who want more)
+                ShortcutItem(
                     name: "Calendar",
                     iconName: "calendar",
                     actionURL: "Calendar",
@@ -57,15 +67,24 @@ class ShortcutManager: ObservableObject {
                     iconName: "note.text",
                     actionURL: "Notes",
                     actionType: .application
-                ),
-                ShortcutItem(
-                    name: "System Settings",
-                    iconName: "gearshape.2.fill",
-                    actionURL: "System Settings",
-                    actionType: .application
                 )
             ]
             saveShortcuts()
+        } else {
+            // If user has previously saved shortcuts but System Settings is missing,
+            // insert it as the 4th shortcut so the UI (which shows the first 4)
+            // will include it by default without overwriting the user's list.
+            if !shortcuts.contains(where: { $0.name == "System Settings" }) {
+                let systemSettings = ShortcutItem(
+                    name: "System Settings",
+                    iconName: "sparkles",
+                    actionURL: "System Settings",
+                    actionType: .application
+                )
+                let insertIndex = min(3, shortcuts.count)
+                shortcuts.insert(systemSettings, at: insertIndex)
+                saveShortcuts()
+            }
         }
     }
     

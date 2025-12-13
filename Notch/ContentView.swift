@@ -316,7 +316,7 @@ struct ContentView: View {
             
             // SHORTCUTS
             VStack(spacing: 10) {
-                ForEach(shortcutManager.shortcuts.prefix(3)) { shortcut in
+                ForEach(shortcutManager.shortcuts.prefix(4)) { shortcut in
                     Button(action: { shortcutManager.run(shortcut) }) {
                         HStack(spacing: 10) {
                             Image(systemName: shortcut.iconName)
