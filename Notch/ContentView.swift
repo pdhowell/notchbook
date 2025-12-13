@@ -32,7 +32,7 @@ struct ContentView: View {
                 VStack(spacing: 0) {
                     notchContent
                         .frame(
-                            width: isHovering ? CGFloat(notchWidth) : 220,
+                            width: isHovering ? CGFloat(notchWidth) : 225,
                             height: isHovering ? CGFloat(notchHeight) : 32
                         )
                         .fixedSize()
@@ -306,22 +306,6 @@ struct ContentView: View {
                 }
                 .frame(maxWidth: .infinity)
 
-                // Output device row
-                // HStack(spacing: 8) {
-                //     Image(systemName: "airplayaudio")
-                //         .font(.system(size: 12))
-                //         .foregroundColor(.cyan)
-                //     Text(mediaManager.outputDevice.isEmpty ? "Default Output" : mediaManager.outputDevice)
-                //         .font(.caption2)
-                //         .foregroundColor(.gray)
-                //     Spacer()
-                //     Button(action: { NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.sound")!) }) {
-                //         Image(systemName: "chevron.right")
-                //             .font(.system(size: 10, weight: .semibold))
-                //             .foregroundColor(.gray)
-                //     }
-                //     .buttonStyle(PlainButtonStyle())
-                // }
             }
             .padding(16)
             .frame(maxWidth: .infinity)
@@ -533,7 +517,7 @@ struct SettingsView: View {
                     Text("Width")
                         .font(.subheadline)
                         .foregroundColor(.secondary)
-                    Slider(value: $notchWidth, in: 550...700, step: 40)
+                    Slider(value: $notchWidth, in: 700...860, step: 40)
                         .onChange(of: notchWidth) { _, newValue in
                             if newValue < 550 { notchWidth = 550 }
                         }
@@ -543,7 +527,7 @@ struct SettingsView: View {
                     Text("Height")
                         .font(.subheadline)
                         .foregroundColor(.secondary)
-                    Slider(value: $notchHeight, in: 220...270, step: 10)
+                    Slider(value: $notchHeight, in: 270...310, step: 10)
                         .onChange(of: notchHeight) { _, newValue in
                             if newValue < 220 { notchHeight = 220 }
                         }
@@ -989,33 +973,6 @@ class MediaManager: ObservableObject {
             }
         }
     }
-
-    // private func updateOutputDevice() {
-    //     DispatchQueue.global(qos: .utility).async {
-    //         var deviceID = AudioDeviceID(0)
-    //         var propertyAddress = AudioObjectPropertyAddress(mSelector: kAudioHardwarePropertyDefaultOutputDevice, mScope: kAudioObjectPropertyScopeGlobal, mElement: kAudioObjectPropertyElementMaster)
-    //         var size = UInt32(MemoryLayout<AudioDeviceID>.size)
-    //         let status = AudioObjectGetPropertyData(AudioObjectID(kAudioObjectSystemObject), &propertyAddress, 0, nil, &size, &deviceID)
-    //         if status != kAudioHardwareNoError {
-    //             DispatchQueue.main.async { self.outputDevice = "" }
-    //             return
-    //         }
-
-    //         var name: CFString = "" as CFString
-    //         var nameAddr = AudioObjectPropertyAddress(mSelector: kAudioObjectPropertyName, mScope: kAudioObjectPropertyScopeGlobal, mElement: kAudioObjectPropertyElementMaster)
-    //         size = UInt32(MemoryLayout<CFString>.size)
-    //         let status2 = AudioObjectGetPropertyData(deviceID, &nameAddr, 0, nil, &size, &name)
-    //         if status2 == kAudioHardwareNoError {
-    //             DispatchQueue.main.async {
-    //                 self.outputDevice = name as String
-    //             }
-    //         } else {
-    //             DispatchQueue.main.async {
-    //                 self.outputDevice = ""
-    //             }
-    //         }
-    //     }
-    // }
 
     // MARK: - Formatting
     var formattedPosition: String { Self.formatTime(position) }
