@@ -2,6 +2,7 @@ import SwiftUI
 import UniformTypeIdentifiers
 import AVFoundation
 import AppKit
+import CoreAudio
 import Combine
 
 // MARK: - MAIN VIEW
@@ -227,30 +228,44 @@ struct ContentView: View {
             // MEDIA PLAYER
             VStack(alignment: .leading, spacing: 10) {
                 HStack(spacing: 12) {
-                    if let art = mediaManager.albumArt {
-                        Image(nsImage: art)
-                            .resizable()
-                            .aspectRatio(contentMode: .fill)
-                            .frame(width: 60, height: 60)
-                            .cornerRadius(12)
-                            .shadow(color: .black.opacity(0.3), radius: 5)
-                    } else {
-                        RoundedRectangle(cornerRadius: 12)
-                            .fill(
-                                LinearGradient(
-                                    gradient: Gradient(colors: [Color.purple.opacity(0.3), Color.blue.opacity(0.3)]),
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
+                    // Album art with source app logo overlay at bottom-right
+                    ZStack(alignment: .bottomTrailing) {
+                        if let art = mediaManager.albumArt {
+                            Image(nsImage: art)
+                                .resizable()
+                                .aspectRatio(contentMode: .fill)
+                                .frame(width: 60, height: 60)
+                                .cornerRadius(12)
+                                .shadow(color: .black.opacity(0.3), radius: 5)
+                                .clipped()
+                        } else {
+                            RoundedRectangle(cornerRadius: 12)
+                                .fill(
+                                    LinearGradient(
+                                        gradient: Gradient(colors: [Color.purple.opacity(0.3), Color.blue.opacity(0.3)]),
+                                        startPoint: .topLeading,
+                                        endPoint: .bottomTrailing
+                                    )
                                 )
-                            )
-                            .frame(width: 60, height: 60)
-                            .overlay(
-                                Image(systemName: "music.note")
-                                    .font(.title2)
-                                    .foregroundColor(.white.opacity(0.6))
-                            )
+                                .frame(width: 60, height: 60)
+                                .overlay(
+                                    Image(systemName: "music.note")
+                                        .font(.title2)
+                                        .foregroundColor(.white.opacity(0.6))
+                                )
+                        }
+
+                        if let appIcon = mediaManager.appIcon {
+                            Image(nsImage: appIcon)
+                                .resizable()
+                                .aspectRatio(contentMode: .fit)
+                                .frame(width: 18, height: 18)
+                                .background(RoundedRectangle(cornerRadius: 4).fill(Color.black.opacity(0.45)))
+                                .clipShape(RoundedRectangle(cornerRadius: 4))
+                                .offset(x: -4, y: -4)
+                        }
                     }
-                    
+
                     VStack(alignment: .leading, spacing: 4) {
                         Text(mediaManager.trackTitle)
                             .font(.system(size: 14, weight: .bold))
@@ -263,7 +278,25 @@ struct ContentView: View {
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                 }
-                
+
+                // Seek bar + time labels
+                VStack(spacing: 6) {
+                    Slider(value: $mediaManager.position, in: 0...max(1, mediaManager.duration), onEditingChanged: { editing in
+                        if !editing {
+                            mediaManager.seek(to: mediaManager.position)
+                        }
+                    })
+                    HStack {
+                        Text(mediaManager.formattedPosition)
+                            .font(.caption2)
+                            .foregroundColor(.gray)
+                        Spacer()
+                        Text(mediaManager.formattedDuration)
+                            .font(.caption2)
+                            .foregroundColor(.gray)
+                    }
+                }
+
                 HStack(spacing: 20) {
                     SleekIconButton(systemName: "backward.fill", size: 16, action: mediaManager.previousTrack)
 
@@ -272,6 +305,23 @@ struct ContentView: View {
                     SleekIconButton(systemName: "forward.fill", size: 16, action: mediaManager.nextTrack)
                 }
                 .frame(maxWidth: .infinity)
+
+                // Output device row
+                // HStack(spacing: 8) {
+                //     Image(systemName: "airplayaudio")
+                //         .font(.system(size: 12))
+                //         .foregroundColor(.cyan)
+                //     Text(mediaManager.outputDevice.isEmpty ? "Default Output" : mediaManager.outputDevice)
+                //         .font(.caption2)
+                //         .foregroundColor(.gray)
+                //     Spacer()
+                //     Button(action: { NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.sound")!) }) {
+                //         Image(systemName: "chevron.right")
+                //             .font(.system(size: 10, weight: .semibold))
+                //             .foregroundColor(.gray)
+                //     }
+                //     .buttonStyle(PlainButtonStyle())
+                // }
             }
             .padding(16)
             .frame(maxWidth: .infinity)
@@ -653,20 +703,28 @@ class MediaManager: ObservableObject {
     @Published var isPlaying: Bool = false
     @Published var albumArt: NSImage? = nil
     @Published var appName: String = "Music"
-    
+
+    // Playback position & duration (seconds)
+    @Published var position: Double = 0
+    @Published var duration: Double = 0
+
+    // App icon (source of media) and output device name
+    @Published var appIcon: NSImage? = nil
+    @Published var outputDevice: String = ""
+
     private var timer: Timer?
     private var currentTrackIdentifier: String = ""
-    
+
     init() {
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
             self.startListening()
         }
     }
-    
+
     deinit {
         timer?.invalidate()
     }
-    
+
     func startListening() {
         // Poll every 1.5 seconds
         timer = Timer.scheduledTimer(withTimeInterval: 1.5, repeats: true) { [weak self] _ in
@@ -674,22 +732,26 @@ class MediaManager: ObservableObject {
         }
         fetchTrackInfo()
     }
-    
+
     func fetchTrackInfo() {
         let musicApp = NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.Music").first
         let spotifyApp = NSRunningApplication.runningApplications(withBundleIdentifier: "com.spotify.client").first
-        
-        if let spotify = spotifyApp, !spotify.isTerminated {
+
+        if let _ = spotifyApp, !(spotifyApp?.isTerminated ?? true) {
             self.appName = "Spotify"
+            updateAppIcon(forBundle: "com.spotify.client")
             runSpotifyScript()
-        } else if let music = musicApp, !music.isTerminated {
+        } else if let _ = musicApp, !(musicApp?.isTerminated ?? true) {
             self.appName = "Music"
+            updateAppIcon(forBundle: "com.apple.Music")
             runMusicScript()
         } else {
             resetState()
         }
+
+        // updateOutputDevice()
     }
-    
+
     private func resetState() {
         if !currentTrackIdentifier.isEmpty {
             DispatchQueue.main.async {
@@ -698,6 +760,8 @@ class MediaManager: ObservableObject {
                 self.artistName = "No media active"
                 self.albumArt = nil
                 self.currentTrackIdentifier = ""
+                self.position = 0
+                self.duration = 0
             }
         }
     }
@@ -711,33 +775,43 @@ class MediaManager: ObservableObject {
             else
                 set sState to "paused"
             end if
-            -- We get the ID to know if the song changed
-            return {sState, name of current track, artist of current track, id of current track, artwork url of current track}
+            set pos to player position
+            set dur to duration of current track
+            return {sState, name of current track, artist of current track, id of current track, artwork url of current track, pos, dur}
         end tell
         """
         executeScript(script, parseMethod: parseSpotify)
     }
-    
+
     private func parseSpotify(_ result: String) {
         let components = result.components(separatedBy: "|||")
-        // State, Name, Artist, ID, URL
+        // State, Name, Artist, ID, URL, pos, dur
         guard components.count >= 4 else { return }
-        
+
         let newState = components[0]
         let newTitle = components[1]
         let newArtist = components[2]
         let newID = components[3]
-        
+
         DispatchQueue.main.async {
             self.isPlaying = (newState == "playing")
             self.trackTitle = newTitle
             self.artistName = newArtist
-            
+
+            // Position & duration (if present)
+            if components.count >= 6, let pos = Double(components[5]) {
+                self.position = pos
+            }
+            if components.count >= 7, let rawDur = Double(components[6]) {
+                // Spotify duration may be in milliseconds; if so convert
+                self.duration = rawDur > 10000 ? rawDur / 1000.0 : rawDur
+            }
+
             // Only fetch artwork if the song ID changed
             if self.currentTrackIdentifier != newID {
                 self.currentTrackIdentifier = newID
-                self.albumArt = nil 
-                
+                self.albumArt = nil
+
                 if components.count >= 5 {
                     let urlString = components[4]
                     if let url = URL(string: urlString) {
@@ -757,29 +831,38 @@ class MediaManager: ObservableObject {
             else
                 set pState to "paused"
             end if
-            -- Music doesn't have a simple ID, so we make one from name+artist
-            return {pState, name of current track, artist of current track}
+            set pos to player position
+            set dur to duration of current track
+            return {pState, name of current track, artist of current track, pos, dur}
         end tell
         """
         executeScript(script, parseMethod: parseMusic)
     }
-    
+
     private func parseMusic(_ result: String) {
         let components = result.components(separatedBy: "|||")
         guard components.count >= 3 else { return }
-        
+
         let newState = components[0]
         let newTitle = components[1]
         let newArtist = components[2]
-        
+
         // Create a unique signature for this song
         let newID = "\(newTitle)-\(newArtist)"
-        
+
         DispatchQueue.main.async {
             self.isPlaying = (newState == "playing")
             self.trackTitle = newTitle
             self.artistName = newArtist
-            
+
+            // Position & duration (if present)
+            if components.count >= 4, let pos = Double(components[3]) {
+                self.position = pos
+            }
+            if components.count >= 5, let dur = Double(components[4]) {
+                self.duration = dur
+            }
+
             // Only fetch artwork if the song changed
             if self.currentTrackIdentifier != newID {
                 self.currentTrackIdentifier = newID
@@ -788,7 +871,7 @@ class MediaManager: ObservableObject {
             }
         }
     }
-    
+
     private func fetchMusicArtwork() {
         // Apple Music holds raw data, not a URL. We must grab the 'data' descriptor.
         DispatchQueue.global(qos: .userInitiated).async {
@@ -796,7 +879,7 @@ class MediaManager: ObservableObject {
             if let scriptObject = NSAppleScript(source: scriptSource) {
                 var error: NSDictionary?
                 let output = scriptObject.executeAndReturnError(&error)
-                
+
                 // output.data is the raw image data (TIFF/JPEG)
                 if error == nil {
                     let artData = output.data
@@ -816,12 +899,12 @@ class MediaManager: ObservableObject {
             var error: NSDictionary?
             if let scriptObject = NSAppleScript(source: source) {
                 let output = scriptObject.executeAndReturnError(&error)
-                
+
                 if let error = error {
                     print("AppleScript Error: \(error)")
                     return
                 }
-                
+
                 var resultString = ""
                 if output.descriptorType == typeAEList {
                     var results: [String] = []
@@ -838,12 +921,12 @@ class MediaManager: ObservableObject {
                 } else {
                     resultString = output.stringValue ?? ""
                 }
-                
+
                 parseMethod(resultString)
             }
         }
     }
-    
+
     private func downloadArtwork(from url: URL) {
         URLSession.shared.dataTask(with: url) { [weak self] data, _, _ in
             if let data = data, let image = NSImage(data: data) {
@@ -853,20 +936,32 @@ class MediaManager: ObservableObject {
             }
         }.resume()
     }
-    
+
     // MARK: - Controls
     func togglePlayPause() {
         executeSimpleScript("tell application \"\(self.appName)\" to playpause")
     }
-    
+
     func nextTrack() {
         executeSimpleScript("tell application \"\(self.appName)\" to next track")
     }
-    
+
     func previousTrack() {
         executeSimpleScript("tell application \"\(self.appName)\" to previous track")
     }
-    
+
+    func seek(to seconds: Double) {
+        let safe = max(0, seconds)
+        if appName == "Spotify" {
+            executeSimpleScript("tell application \"Spotify\" to set player position to \(safe)")
+        } else {
+            executeSimpleScript("tell application \"Music\" to set player position to \(safe)")
+        }
+        DispatchQueue.main.async {
+            self.position = safe
+        }
+    }
+
     private func executeSimpleScript(_ source: String) {
         DispatchQueue.global(qos: .userInitiated).async {
             var error: NSDictionary?
@@ -877,6 +972,61 @@ class MediaManager: ObservableObject {
                 self.fetchTrackInfo()
             }
         }
+    }
+
+    // MARK: - App icon & Output Device
+    private func updateAppIcon(forBundle bundleId: String) {
+        DispatchQueue.global(qos: .utility).async {
+            if let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleId) {
+                let icon = NSWorkspace.shared.icon(forFile: url.path)
+                DispatchQueue.main.async {
+                    self.appIcon = icon
+                }
+            } else {
+                DispatchQueue.main.async {
+                    self.appIcon = nil
+                }
+            }
+        }
+    }
+
+    // private func updateOutputDevice() {
+    //     DispatchQueue.global(qos: .utility).async {
+    //         var deviceID = AudioDeviceID(0)
+    //         var propertyAddress = AudioObjectPropertyAddress(mSelector: kAudioHardwarePropertyDefaultOutputDevice, mScope: kAudioObjectPropertyScopeGlobal, mElement: kAudioObjectPropertyElementMaster)
+    //         var size = UInt32(MemoryLayout<AudioDeviceID>.size)
+    //         let status = AudioObjectGetPropertyData(AudioObjectID(kAudioObjectSystemObject), &propertyAddress, 0, nil, &size, &deviceID)
+    //         if status != kAudioHardwareNoError {
+    //             DispatchQueue.main.async { self.outputDevice = "" }
+    //             return
+    //         }
+
+    //         var name: CFString = "" as CFString
+    //         var nameAddr = AudioObjectPropertyAddress(mSelector: kAudioObjectPropertyName, mScope: kAudioObjectPropertyScopeGlobal, mElement: kAudioObjectPropertyElementMaster)
+    //         size = UInt32(MemoryLayout<CFString>.size)
+    //         let status2 = AudioObjectGetPropertyData(deviceID, &nameAddr, 0, nil, &size, &name)
+    //         if status2 == kAudioHardwareNoError {
+    //             DispatchQueue.main.async {
+    //                 self.outputDevice = name as String
+    //             }
+    //         } else {
+    //             DispatchQueue.main.async {
+    //                 self.outputDevice = ""
+    //             }
+    //         }
+    //     }
+    // }
+
+    // MARK: - Formatting
+    var formattedPosition: String { Self.formatTime(position) }
+    var formattedDuration: String { Self.formatTime(duration) }
+
+    private static func formatTime(_ seconds: Double) -> String {
+        guard seconds.isFinite && seconds > 0 else { return "0:00" }
+        let interval = Int(round(seconds))
+        let minutes = interval / 60
+        let secs = interval % 60
+        return String(format: "%d:%02d", minutes, secs)
     }
 }
 
