@@ -1,5 +1,3 @@
-
-
 import SwiftUI
 import UniformTypeIdentifiers
 import AVFoundation
@@ -12,12 +10,12 @@ struct ContentView: View {
     @StateObject private var cameraManager = CameraManager()
     @StateObject private var shortcutManager = ShortcutManager()
     
-    // --- SETTINGS ---
+    // SETTINGS
     @AppStorage("notchWidth") private var notchWidth: Double = 700
     @AppStorage("notchHeight") private var notchHeight: Double = 240
     @AppStorage("showMirror") private var showMirror = true
     
-    // --- STATE ---
+    // STATE 
     @State private var isHovering = false
     @State private var activeTab: Tab = .notch
     @State private var storedFiles: [StoredFile] = []
@@ -83,7 +81,6 @@ struct ContentView: View {
     var notchContent: some View {
         ZStack(alignment: .top) {
             // BACKGROUND
-            // Increase the bottom corner radius when expanded (isHovering) for a softer look
             BottomRoundedRectangle(bottomRadius: isHovering ? 24 : 12)
                 .fill(
                     LinearGradient(
@@ -95,7 +92,7 @@ struct ContentView: View {
                     BottomRoundedRectangle(bottomRadius: isHovering ? 24 : 12)
                         .stroke(Color.white.opacity(0.15), lineWidth: 1)
                 )
-                // Only show the heavy drop shadow when expanded; keep it gone when collapsed
+                // heavy drop shadow when expanded
                 .shadow(color: .black.opacity(isHovering ? 0.7 : 0.0), radius: isHovering ? 20 : 0, x: 0, y: isHovering ? 10 : 0)
             
             // CONTENT
@@ -129,8 +126,6 @@ struct ContentView: View {
                 isHovering = hovering
             }
 
-            // Only auto-start camera on hover if the mirror feature is enabled and the user
-            // has toggled the camera ON (cameraManager.isEnabled).
             if hovering && activeTab == .notch && showMirror && cameraManager.isEnabled {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                     cameraManager.start()
@@ -140,29 +135,21 @@ struct ContentView: View {
             }
         }
         .onChange(of: isHovering) { _, newValue in
-            // When collapsed (isHovering == false) instruct the panel to ignore mouse events
-            // But keep the panel interactive if settings are visible.
             let ignore = !(newValue || showSettings)
             NotificationCenter.default.post(name: Notification.Name("NotchPanelToggleMouseEvents"), object: nil, userInfo: ["ignore": ignore])
         }
 
         .onChange(of: showSettings) { _, newValue in
-            // When opening settings we want the notch to collapse initially so the
-            // Settings panel stands out — but hovering over the notch should still
-            // expand it again. So force `isHovering = false` when settings open.
             if newValue {
                 withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
                     isHovering = false
                 }
             }
 
-            // Ensure the panel accepts mouse events while settings are shown so the settings UI is usable.
             let ignore = !(isHovering || newValue)
             NotificationCenter.default.post(name: Notification.Name("NotchPanelToggleMouseEvents"), object: nil, userInfo: ["ignore": ignore])
         }
         .onChange(of: activeTab) { _, newTab in
-            // If user switches to Notch and the notch is already hovered and mirror is enabled,
-            // ensure the camera starts (match the onHover behavior).
             if newTab == .notch && isHovering && showMirror && cameraManager.isEnabled {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                     cameraManager.start()
@@ -183,7 +170,6 @@ struct ContentView: View {
     }
     
     // MARK: - SUBVIEWS
-    
     var headerView: some View {
         HStack(spacing: 15) {
             Button(action: { withAnimation { activeTab = .notch } }) {
@@ -279,8 +265,6 @@ struct ContentView: View {
                 }
                 
                 HStack(spacing: 20) {
-                    // Sleek icon-only controls: use PlainButtonStyle to remove macOS button
-                    // chrome (borders/backgrounds) and add a subtle hover transform.
                     SleekIconButton(systemName: "backward.fill", size: 16, action: mediaManager.previousTrack)
 
                     SleekIconButton(systemName: mediaManager.isPlaying ? "pause.circle.fill" : "play.circle.fill", size: 28, action: mediaManager.togglePlayPause)
@@ -322,7 +306,7 @@ struct ContentView: View {
             }
             .frame(width: 180)
             
-            // CAMERA MIRROR
+            // CAMERA
             if showMirror {
                 ZStack {
                     if cameraManager.isAuthorized {
@@ -373,7 +357,6 @@ struct ContentView: View {
                         }
                     } else {
                         Button(action: {
-                            // Check if we need to request or if it's been denied
                             let status = AVCaptureDevice.authorizationStatus(for: .video)
                             if status == .notDetermined {
                                 cameraManager.requestPermission()
@@ -437,27 +420,16 @@ struct ContentView: View {
     }
     
     var collapsedStateView: some View {
-        HStack(spacing: 6) {
-            Circle()
-                .fill(Color.white.opacity(0.3))
-                .frame(width: 5, height: 5)
-            Circle()
-                .fill(Color.white.opacity(0.2))
-                .frame(width: 4, height: 4)
-            Circle()
-                .fill(Color.white.opacity(0.15))
-                .frame(width: 3, height: 3)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        
+        Color.clear
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
     
-    // --- LOGIC ---
+    // LOGIC
     func handleDrop(providers: [NSItemProvider]) {
         for provider in providers {
             provider.loadItem(forTypeIdentifier: UTType.fileURL.identifier, options: nil) { (item, error) in
                 DispatchQueue.main.async {
-                    // `item` can be various types depending on the provider — cast to Data
-                    // before creating a URL from the data representation.
                     if let data = item as? Data,
                        let url = URL(dataRepresentation: data, relativeTo: nil),
                        !storedFiles.contains(where: { $0.url == url }) {
@@ -508,7 +480,6 @@ struct SettingsView: View {
                     .font(.headline)
                 
                 VStack(alignment: .leading, spacing: 8) {
-                    // Minimal label (no exact pixels shown)
                     Text("Width")
                         .font(.subheadline)
                         .foregroundColor(.secondary)
@@ -591,7 +562,6 @@ class CameraManager: NSObject, ObservableObject {
             }
             setupSession()
         case .notDetermined:
-            // Don't request automatically
             DispatchQueue.main.async {
                 self.isAuthorized = false
             }
@@ -612,7 +582,6 @@ class CameraManager: NSObject, ObservableObject {
                 self.isAuthorized = granted
                 if granted {
                     self.setupSession()
-                    // If user requested permission as part of toggling on, start only if enabled
                     if self.isEnabled {
                         self.start()
                     }
@@ -622,11 +591,9 @@ class CameraManager: NSObject, ObservableObject {
     }
     
     func openSystemPreferences() {
-        // Open System Settings to Camera privacy
         let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Camera")!
         NSWorkspace.shared.open(url)
         
-        // Show alert with instructions
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
             let alert = NSAlert()
             alert.messageText = "Enable Camera Access"
@@ -642,7 +609,6 @@ class CameraManager: NSObject, ObservableObject {
         
         session.beginConfiguration()
         
-        // Remove existing inputs
         session.inputs.forEach { session.removeInput($0) }
         
         guard let device = AVCaptureDevice.default(for: .video),
@@ -689,7 +655,6 @@ class MediaManager: ObservableObject {
     @Published var appName: String = "Music"
     
     private var timer: Timer?
-    // We use this to detect if the song changed so we don't re-download art constantly
     private var currentTrackIdentifier: String = ""
     
     init() {
@@ -755,7 +720,7 @@ class MediaManager: ObservableObject {
     
     private func parseSpotify(_ result: String) {
         let components = result.components(separatedBy: "|||")
-        // We expect: State, Name, Artist, ID, URL
+        // State, Name, Artist, ID, URL
         guard components.count >= 4 else { return }
         
         let newState = components[0]
@@ -771,7 +736,7 @@ class MediaManager: ObservableObject {
             // Only fetch artwork if the song ID changed
             if self.currentTrackIdentifier != newID {
                 self.currentTrackIdentifier = newID
-                self.albumArt = nil // Clear old art
+                self.albumArt = nil 
                 
                 if components.count >= 5 {
                     let urlString = components[4]
@@ -819,7 +784,6 @@ class MediaManager: ObservableObject {
             if self.currentTrackIdentifier != newID {
                 self.currentTrackIdentifier = newID
                 self.albumArt = nil // Clear old art
-                // Fetch the raw data specifically for Music app
                 self.fetchMusicArtwork()
             }
         }
@@ -835,9 +799,6 @@ class MediaManager: ObservableObject {
                 
                 // output.data is the raw image data (TIFF/JPEG)
                 if error == nil {
-                    // `output.data` may be a non-optional Data in some SDK versions; avoid
-                    // using optional-binding on a non-optional. Use a plain let and
-                    // construct the NSImage (which itself is failable).
                     let artData = output.data
                     if let image = NSImage(data: artData) {
                         DispatchQueue.main.async {
@@ -1033,21 +994,14 @@ struct BottomRoundedRectangle: Shape {
         let br = min(bottomRadius, min(rect.width / 2, rect.height / 2))
 
         var path = Path()
-        // Start at top-left
         path.move(to: CGPoint(x: minX, y: minY))
-        // Top edge to top-right
         path.addLine(to: CGPoint(x: maxX, y: minY))
-        // Down right edge to where arc starts
         path.addLine(to: CGPoint(x: maxX, y: maxY - br))
-        // Bottom-right arc (quarter circle)
         path.addArc(center: CGPoint(x: maxX - br, y: maxY - br), radius: br,
                     startAngle: Angle(degrees: 0), endAngle: Angle(degrees: 90), clockwise: false)
-        // Bottom edge to bottom-left arc start
         path.addLine(to: CGPoint(x: minX + br, y: maxY))
-        // Bottom-left arc
         path.addArc(center: CGPoint(x: minX + br, y: maxY - br), radius: br,
                     startAngle: Angle(degrees: 90), endAngle: Angle(degrees: 180), clockwise: false)
-        // Up left edge back to top-left
         path.addLine(to: CGPoint(x: minX, y: minY))
         path.closeSubpath()
 
@@ -1056,7 +1010,6 @@ struct BottomRoundedRectangle: Shape {
 }
 
 struct CameraPreviewView: NSViewRepresentable {
-    // Use the project's CameraManager which exposes an AVCaptureSession
     @ObservedObject var cameraSession: CameraManager // provides `session: AVCaptureSession`
 
     func makeNSView(context: Context) -> NSView {
