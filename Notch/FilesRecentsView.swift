@@ -100,7 +100,7 @@ final class FilesRecentsViewModel: ObservableObject {
         // Sort by most recent last-opened (access) date
         candidates.sort { $0.1 > $1.1 }
 
-        // Deduplicate while preserving order and keep first 4
+        // Deduplicate while preserving order and keep first 5
         var seen = Set<String>()
         var final: [URL] = []
         for (url, _) in candidates {
@@ -108,7 +108,7 @@ final class FilesRecentsViewModel: ObservableObject {
             if seen.contains(key) { continue }
             seen.insert(key)
             final.append(url)
-            if final.count >= 4 { break }
+            if final.count >= 5 { break }
         }
 
         DispatchQueue.main.async {
@@ -182,7 +182,7 @@ struct FilesRecentsView: View {
                                 Image(nsImage: nsImg)
                                     .resizable()
                                     .scaledToFill()
-                                    .frame(width: geo.size.width * 0.38, height: geo.size.height)
+                                    .frame(width: geo.size.width*0.45, height: geo.size.height)
                                     .clipped()
                                     .cornerRadius(8)
                             }
@@ -215,28 +215,37 @@ struct FilesRecentsView: View {
                                     .font(.caption)
                                     .foregroundColor(.gray)
                             } else {
-                                ForEach(vm.recentItems, id: \.self) { url in
-                                    HStack(spacing: 8) {
-                                        Image(nsImage: NSWorkspace.shared.icon(forFile: url.path))
-                                            .resizable()
-                                            .renderingMode(.original)
-                                            .frame(width: 20, height: 20)
+                                ScrollView(.horizontal, showsIndicators: false) {
+                                    HStack(spacing: 10) {
+                                        ForEach(vm.recentItems, id: \.self) { url in
+                                            VStack(spacing: 6) {
+                                                Image(nsImage: NSWorkspace.shared.icon(forFile: url.path))
+                                                    .resizable()
+                                                    .renderingMode(.original)
+                                                    .scaledToFit()
+                                                    .frame(width: 48, height: 48)
+                                                    .cornerRadius(6)
 
-                                        Text(url.lastPathComponent)
-                                            .lineLimit(1)
-                                            .truncationMode(.tail)
-                                            .foregroundColor(.white)
-
-                                        Spacer()
+                                                Text(url.lastPathComponent)
+                                                    .font(.caption)
+                                                    .lineLimit(1)
+                                                    .truncationMode(.tail)
+                                                    .foregroundColor(.white)
+                                            }
+                                            .frame(width: 90)
+                                            .padding(6)
+                                            .background(Color.white.opacity(0.01))
+                                            .cornerRadius(8)
+                                            .contentShape(Rectangle())
+                                            .onTapGesture {
+                                                NSWorkspace.shared.open(url)
+                                            }
+                                            .onDrag {
+                                                return NSItemProvider(object: url as NSURL)
+                                            }
+                                        }
                                     }
-                                    .padding(.vertical, 6)
-                                    .contentShape(Rectangle())
-                                    .onTapGesture {
-                                        NSWorkspace.shared.open(url)
-                                    }
-                                    .onDrag {
-                                        return NSItemProvider(object: url as NSURL)
-                                    }
+                                    .padding(.vertical, 4)
                                 }
                             }
                         }
