@@ -5,6 +5,8 @@ import AppKit
 import CoreAudio
 import Combine
 
+
+
 // MARK: - MAIN VIEW
 struct ContentView: View {
     @StateObject private var mediaManager = MediaManager()
@@ -23,7 +25,8 @@ struct ContentView: View {
     @State private var isDropTargeted = false
     @State private var showSettings = false
     
-    enum Tab { case notch, shelf }
+    
+    enum Tab { case notch, shelf, timeFocus, filesRecents }
 
     var body: some View {
         GeometryReader { geometry in
@@ -102,14 +105,27 @@ struct ContentView: View {
                     headerView
                         .transition(.opacity.animation(.easeInOut(duration: 0.2)))
                     
-                    if activeTab == .notch {
-                            notchDashboardView
+                    switch activeTab {
+                    case .notch:
+                        notchDashboardView
                             .transition(.asymmetric(
                                 insertion: .opacity.combined(with: .scale(scale: 0.95)),
                                 removal: .opacity
                             ))
-                    } else {
-                            fileShelfView
+                    case .shelf:
+                        fileShelfView
+                            .transition(.asymmetric(
+                                insertion: .opacity.combined(with: .scale(scale: 0.95)),
+                                removal: .opacity
+                            ))
+                    case .timeFocus:
+                        timeFocusView
+                            .transition(.asymmetric(
+                                insertion: .opacity.combined(with: .scale(scale: 0.95)),
+                                removal: .opacity
+                            ))
+                    case .filesRecents:
+                        filesRecentsView
                             .transition(.asymmetric(
                                 insertion: .opacity.combined(with: .scale(scale: 0.95)),
                                 removal: .opacity
@@ -171,6 +187,37 @@ struct ContentView: View {
     }
     
     // MARK: - SUBVIEWS
+    
+    // Helper to create uniformly sized header icon buttons so spacing and alignment
+    // between icons is consistent. Pass `isActive` to visually highlight the
+    // currently selected section (matches the pattern used for the Notch/Shelf
+    // header buttons).
+    @ViewBuilder
+    private func headerIcon(_ systemName: String, isActive: Bool = false, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: systemName)
+                .font(.system(size: 15))
+                .foregroundColor(isActive ? .white : .gray)
+                .frame(width: 36, height: 36)
+                .background(Circle().fill(isActive ? Color.white.opacity(0.15) : Color.white.opacity(0.1)))
+        }
+        .buttonStyle(PlainButtonStyle())
+    }
+
+    // Small pill button used in the Time & Focus UI for quick timers and presets
+    @ViewBuilder
+    private func timerPill(title: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(title)
+                .font(.system(size: 13, weight: .medium))
+                .foregroundColor(.white)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 8)
+                .background(Capsule().fill(Color.white.opacity(0.06)))
+        }
+        .buttonStyle(PlainButtonStyle())
+    }
+
     var headerView: some View {
         HStack(spacing: 15) {
             Button(action: { withAnimation { activeTab = .notch } }) {
@@ -208,15 +255,20 @@ struct ContentView: View {
             .buttonStyle(PlainButtonStyle())
             
             Spacer()
-            
-            Button(action: { withAnimation { showSettings.toggle() } }) {
-                Image(systemName: "gearshape.fill")
-                    .font(.system(size: 15))
-                    .foregroundColor(.gray)
-                    .padding(8)
-                    .background(Circle().fill(Color.white.opacity(0.1)))
+
+            HStack(spacing: 10) {
+                headerIcon("clock", isActive: activeTab == .timeFocus) {
+                    withAnimation { activeTab = .timeFocus }
+                }
+
+                headerIcon("folder", isActive: activeTab == .filesRecents) {
+                    withAnimation { activeTab = .filesRecents }
+                }
+
+                headerIcon("gearshape.fill", isActive: false) {
+                    withAnimation { showSettings.toggle() }
+                }
             }
-            .buttonStyle(PlainButtonStyle())
         }
         .padding(.horizontal, 20)
         .padding(.top, 16)
@@ -420,37 +472,36 @@ struct ContentView: View {
         .padding(.horizontal, 20)
         .padding(.bottom, 20)
     }
+
+    // Placeholder section views for the three new header icons. These are
+    // minimal for now and follow the same visual container style as the
+    // Notch dashboard so switching feels consistent. We'll keep content
+    // lightweight — replace with real functionality when ready.
+    var timeFocusView: some View {
+        TimeFocusView()
+    }
+
+    // Helper formatting
+    private func formatSeconds(_ seconds: Int) -> String {
+        let s = max(0, seconds)
+        let m = s / 60
+        let sec = s % 60
+        return String(format: "%d:%02d", m, sec)
+    }
+
+    private func timeString(for date: Date?) -> String {
+        guard let d = date else { return "" }
+        let fmt = DateFormatter()
+        fmt.dateFormat = "h:mm a"
+        return fmt.string(from: d)
+    }
+
+    var filesRecentsView: some View {
+        FilesRecentsView()
+    }
     
     var fileShelfView: some View {
-        VStack(spacing: 12) {
-            if storedFiles.isEmpty {
-                VStack(spacing: 12) {
-                    Image(systemName: isDropTargeted ? "arrow.down.circle.fill" : "tray.and.arrow.down.fill")
-                        .font(.system(size: 40))
-                        .foregroundColor(isDropTargeted ? .cyan : .gray)
-                        .animation(.spring(response: 0.3), value: isDropTargeted)
-                    Text(isDropTargeted ? "Release to add files" : "Drag files here to store them")
-                        .font(.system(size: 14))
-                        .foregroundColor(.gray)
-                        .multilineTextAlignment(.center)
-                }
-                .frame(maxHeight: .infinity)
-            } else {
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 16) {
-                        ForEach(storedFiles) { file in
-                            FileItemView(file: file) {
-                                removeFile(file)
-                            }
-                        }
-                    }
-                    .padding(.horizontal, 20)
-                    .padding(.vertical, 10)
-                }
-            }
-        }
-        .padding(.bottom, 20)
-        .frame(maxHeight: .infinity)
+        FileShelfView(storedFiles: $storedFiles, isDropTargeted: $isDropTargeted, onRemove: removeFile)
     }
     
     var collapsedStateView: some View {
@@ -576,6 +627,8 @@ struct SettingsView: View {
     }
 }
 
+
+
 // MARK: - CAMERA MANAGER CLASS
 class CameraManager: NSObject, ObservableObject {
     @Published var session = AVCaptureSession()
@@ -678,6 +731,26 @@ class CameraManager: NSObject, ObservableObject {
         }
     }
 }
+
+
+// MARK: - MEDIA MANAGER CLASS (FIXED & OPTIMIZED)
+    
+final class CameraViewModel: ObservableObject {
+    let session = AVCaptureSession()
+    @Published var isRunning = false
+
+    func stop() {
+        guard session.isRunning else { return }
+        DispatchQueue.global(qos: .userInitiated).async {
+            self.session.stopRunning()
+            DispatchQueue.main.async {
+                self.isRunning = false
+            }
+        }
+    }
+}
+
+
 
 
 // MARK: - MEDIA MANAGER CLASS (FIXED & OPTIMIZED)
