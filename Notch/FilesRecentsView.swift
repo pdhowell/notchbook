@@ -268,6 +268,7 @@ struct FilesRecentsView: View {
                                         .foregroundColor(.white)
                                         .lineLimit(1)
                                         .truncationMode(.tail)
+                                        .layoutPriority(1)
 
                                     Spacer()
 
@@ -276,6 +277,7 @@ struct FilesRecentsView: View {
                                     }
                                     .buttonStyle(.bordered)
                                     .tint(.accentColor)
+                                    .fixedSize()
                                 }
                                 .padding(8)
                                 .background(Color.white.opacity(0.02))
@@ -298,7 +300,7 @@ struct FilesRecentsView: View {
                             }
                         }
                     }
-                    .frame(width: geo.size.width * 0.58, height: geo.size.height)
+                    .frame(maxWidth: .infinity, maxHeight: geo.size.height)
                 }
             }
             .frame(height: 160)

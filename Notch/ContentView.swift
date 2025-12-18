@@ -17,6 +17,11 @@ struct ContentView: View {
     @AppStorage("notchWidth") private var notchWidth: Double = 700
     @AppStorage("notchHeight") private var notchHeight: Double = 240
     @AppStorage("showMirror") private var showMirror = true
+    // Shortcut visibility toggles (persisted)
+    @AppStorage("showFinderShortcut") private var showFinderShortcut: Bool = true
+    @AppStorage("showSafariShortcut") private var showSafariShortcut: Bool = true
+    @AppStorage("showScreenshotShortcut") private var showScreenshotShortcut: Bool = true
+    @AppStorage("showSettingsShortcut") private var showSettingsShortcut: Bool = true
     
     // STATE 
     @State private var isHovering = false
@@ -26,7 +31,20 @@ struct ContentView: View {
     @State private var showSettings = false
     
     
-    enum Tab { case notch, shelf, timeFocus, filesRecents }
+    enum Tab { case notch, shelf, filesRecents }
+
+    // Visible shortcuts filtered by user toggles
+    var visibleShortcuts: [ShortcutItem] {
+        shortcutManager.shortcuts.filter { item in
+            switch item.name {
+            case "Finder": return showFinderShortcut
+            case "Safari": return showSafariShortcut
+            case "Screenshot": return showScreenshotShortcut
+            case "System Settings": return showSettingsShortcut
+            default: return true
+            }
+        }
+    }
 
     var body: some View {
         GeometryReader { geometry in
@@ -35,7 +53,7 @@ struct ContentView: View {
                 VStack(spacing: 0) {
                     notchContent
                         .frame(
-                            width: isHovering ? CGFloat(notchWidth) : 225,
+                            width: isHovering ? CGFloat(notchWidth) : 180,
                             height: isHovering ? CGFloat(notchHeight) : 32
                         )
                         .fixedSize()
@@ -60,7 +78,7 @@ struct ContentView: View {
                         isPresented: $showSettings,
                         cameraManager: cameraManager
                     )
-                    .frame(width: 400, height: 450)
+                    .frame(width: 400, height: 500)
                     .background(
                         RoundedRectangle(cornerRadius: 20)
                             .fill(Color(NSColor.windowBackgroundColor))
@@ -82,80 +100,181 @@ struct ContentView: View {
         }
     }
     
-    var notchContent: some View {
-        ZStack(alignment: .top) {
-            // BACKGROUND
-            BottomRoundedRectangle(bottomRadius: isHovering ? 24 : 12)
-                .fill(
-                    LinearGradient(
-                        gradient: Gradient(colors: [Color.black.opacity(0.95), Color.black.opacity(0.98)]),
-                        startPoint: .top, endPoint: .bottom
-                    )
-                )
-                .overlay(
-                    BottomRoundedRectangle(bottomRadius: isHovering ? 24 : 12)
-                        .stroke(Color.white.opacity(0.15), lineWidth: 1)
-                )
-                // heavy drop shadow when expanded
-                .shadow(color: .black.opacity(isHovering ? 0.7 : 0.0), radius: isHovering ? 20 : 0, x: 0, y: isHovering ? 10 : 0)
+    // var notchContent: some View {
+    //     ZStack(alignment: .top) {
+    //         // BACKGROUND
+    //         BottomRoundedRectangle(bottomRadius: isHovering ? 24 : 12)
+    //             .fill(
+    //                 LinearGradient(
+    //                     gradient: Gradient(colors: [Color.black.opacity(0.95), Color.black.opacity(0.98)]),
+    //                     startPoint: .top, endPoint: .bottom
+    //                 )
+    //             )
+    //             .overlay(
+    //                 BottomRoundedRectangle(bottomRadius: isHovering ? 24 : 12)
+    //                     .stroke(Color.white.opacity(0.15), lineWidth: 1)
+    //             )
+    //             // heavy drop shadow when expanded
+    //             .shadow(color: .black.opacity(isHovering ? 0.7 : 0.0), radius: isHovering ? 20 : 0, x: 0, y: isHovering ? 10 : 0)
             
-            // CONTENT
-            VStack(spacing: 0) {
-                if isHovering {
-                    headerView
-                        .transition(.opacity.animation(.easeInOut(duration: 0.2)))
+    //         // CONTENT
+    //         VStack(spacing: 0) {
+    //             if isHovering {
+    //                 headerView
+    //                     .transition(.opacity.animation(.easeInOut(duration: 0.2)))
                     
-                    switch activeTab {
-                    case .notch:
-                        notchDashboardView
-                            .transition(.asymmetric(
-                                insertion: .opacity.combined(with: .scale(scale: 0.95)),
-                                removal: .opacity
-                            ))
-                    case .shelf:
-                        fileShelfView
-                            .transition(.asymmetric(
-                                insertion: .opacity.combined(with: .scale(scale: 0.95)),
-                                removal: .opacity
-                            ))
-                    case .timeFocus:
-                        timeFocusView
-                            .transition(.asymmetric(
-                                insertion: .opacity.combined(with: .scale(scale: 0.95)),
-                                removal: .opacity
-                            ))
-                    case .filesRecents:
-                        filesRecentsView
-                            .transition(.asymmetric(
-                                insertion: .opacity.combined(with: .scale(scale: 0.95)),
-                                removal: .opacity
-                            ))
-                    }
-                } else {
-                    collapsedStateView
-                        .transition(.opacity)
-                }
-            }
-            .clipped()
-        }
-        .onHover { hovering in
-            withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
-                isHovering = hovering
-            }
+    //                 switch activeTab {
+    //                 case .notch:
+    //                     notchDashboardView
+    //                         .transition(.asymmetric(
+    //                             insertion: .opacity.combined(with: .scale(scale: 0.95)),
+    //                             removal: .opacity
+    //                         ))
+    //                 case .shelf:
+    //                     fileShelfView
+    //                         .transition(.asymmetric(
+    //                             insertion: .opacity.combined(with: .scale(scale: 0.95)),
+    //                             removal: .opacity
+    //                         ))
+                
+    //                 case .filesRecents:
+    //                     filesRecentsView
+    //                         .transition(.asymmetric(
+    //                             insertion: .opacity.combined(with: .scale(scale: 0.95)),
+    //                             removal: .opacity
+    //                         ))
+    //                 }
+    //             } else {
+    //                 collapsedStateView
+    //                     .transition(.opacity)
+    //             }
+    //         }
+    //         .clipped()
+    //     }
+    //     .onHover { hovering in
+    //         withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+    //             isHovering = hovering
+    //         }
 
-            if hovering && activeTab == .notch && showMirror && cameraManager.isEnabled {
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                    cameraManager.start()
+    //         if hovering && activeTab == .notch && showMirror && cameraManager.isEnabled {
+    //             DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+    //                 cameraManager.start()
+    //             }
+    //         } else {
+    //             cameraManager.stop()
+    //         }
+    //     }
+    //     .onChange(of: isHovering) { _, newValue in
+    //         let ignore = !(newValue || showSettings)
+    //         NotificationCenter.default.post(name: Notification.Name("NotchPanelToggleMouseEvents"), object: nil, userInfo: ["ignore": ignore])
+    //     }
+
+    //     .onChange(of: showSettings) { _, newValue in
+    //         if newValue {
+    //             withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
+    //                 isHovering = false
+    //             }
+    //         }
+
+    //         let ignore = !(isHovering || newValue)
+    //         NotificationCenter.default.post(name: Notification.Name("NotchPanelToggleMouseEvents"), object: nil, userInfo: ["ignore": ignore])
+    //     }
+    //     .onChange(of: activeTab) { _, newTab in
+    //         if newTab == .notch && isHovering && showMirror && cameraManager.isEnabled {
+    //             DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+    //                 cameraManager.start()
+    //             }
+    //         } else {
+    //             cameraManager.stop()
+    //         }
+    //     }
+        
+    //     .onDrop(of: [.fileURL], isTargeted: $isDropTargeted) { providers in
+    //         withAnimation {
+    //             activeTab = .shelf
+    //             isHovering = true
+    //         }
+    //         handleDrop(providers: providers)
+    //         return true
+    //     }
+    // }
+
+    var notchContent: some View {
+        GeometryReader { geometry in
+            ZStack(alignment: .top) {
+                // BACKGROUND
+                BottomRoundedRectangle(bottomRadius: isHovering ? 24 : 12)
+                    .fill(
+                        LinearGradient(
+                            gradient: Gradient(colors: [Color.black.opacity(0.95), Color.black.opacity(0.98)]),
+                            startPoint: .top, endPoint: .bottom
+                        )
+                    )
+                    .overlay(
+                        BottomRoundedRectangle(bottomRadius: isHovering ? 24 : 12)
+                            .stroke(Color.white.opacity(0.15), lineWidth: 1)
+                    )
+                    .shadow(color: .black.opacity(isHovering ? 0.7 : 0.0), radius: isHovering ? 20 : 0, x: 0, y: isHovering ? 10 : 0)
+                
+                // CONTENT
+                VStack(spacing: 0) {
+                    if isHovering {
+                        headerView
+                            .transition(.opacity.animation(.easeInOut(duration: 0.2)))
+                        
+                        switch activeTab {
+                        case .notch:
+                            notchDashboardView
+                                .transition(.asymmetric(
+                                    insertion: .opacity.combined(with: .scale(scale: 0.95)),
+                                    removal: .opacity
+                                ))
+                        case .shelf:
+                            fileShelfView
+                                .transition(.asymmetric(
+                                    insertion: .opacity.combined(with: .scale(scale: 0.95)),
+                                    removal: .opacity
+                                ))
+                    
+                        case .filesRecents:
+                            filesRecentsView
+                                .transition(.asymmetric(
+                                    insertion: .opacity.combined(with: .scale(scale: 0.95)),
+                                    removal: .opacity
+                                ))
+                        }
+                    } else {
+                        collapsedStateView
+                            .transition(.opacity)
+                    }
                 }
-            } else {
-                cameraManager.stop()
+                .clipped()
+                
+                // HOVER DETECTION LAYER - Only detects in collapsed size
+                Color.clear
+              .frame(width: isHovering ? geometry.size.width : 180, 
+                           height: isHovering ? geometry.size.height : 32)
+                    .contentShape(Rectangle())
+                    .allowsHitTesting(false)
+                    .onHover { hovering in
+                        withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                            isHovering = hovering
+                        }
+
+                        if hovering && activeTab == .notch && showMirror && cameraManager.isEnabled {
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                                cameraManager.start()
+                            }
+                        } else {
+                            cameraManager.stop()
+                        }
+                    }
             }
         }
         .onChange(of: isHovering) { _, newValue in
             let ignore = !(newValue || showSettings)
             NotificationCenter.default.post(name: Notification.Name("NotchPanelToggleMouseEvents"), object: nil, userInfo: ["ignore": ignore])
         }
-
         .onChange(of: showSettings) { _, newValue in
             if newValue {
                 withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
@@ -175,7 +294,6 @@ struct ContentView: View {
                 cameraManager.stop()
             }
         }
-        
         .onDrop(of: [.fileURL], isTargeted: $isDropTargeted) { providers in
             withAnimation {
                 activeTab = .shelf
@@ -204,19 +322,7 @@ struct ContentView: View {
         .buttonStyle(PlainButtonStyle())
     }
 
-    // Small pill button used in the Time & Focus UI for quick timers and presets
-    @ViewBuilder
-    private func timerPill(title: String, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Text(title)
-                .font(.system(size: 13, weight: .medium))
-                .foregroundColor(.white)
-                .padding(.horizontal, 10)
-                .padding(.vertical, 8)
-                .background(Capsule().fill(Color.white.opacity(0.06)))
-        }
-        .buttonStyle(PlainButtonStyle())
-    }
+    // ...existing code...
 
     var headerView: some View {
         HStack(spacing: 15) {
@@ -257,10 +363,6 @@ struct ContentView: View {
             Spacer()
 
             HStack(spacing: 10) {
-                headerIcon("clock", isActive: activeTab == .timeFocus) {
-                    withAnimation { activeTab = .timeFocus }
-                }
-
                 headerIcon("folder", isActive: activeTab == .filesRecents) {
                     withAnimation { activeTab = .filesRecents }
                 }
@@ -368,7 +470,7 @@ struct ContentView: View {
             
             // SHORTCUTS
             VStack(spacing: 10) {
-                ForEach(shortcutManager.shortcuts.prefix(4)) { shortcut in
+                ForEach(visibleShortcuts.prefix(4)) { shortcut in
                     Button(action: { shortcutManager.run(shortcut) }) {
                         HStack(spacing: 10) {
                             Image(systemName: shortcut.iconName)
@@ -473,13 +575,7 @@ struct ContentView: View {
         .padding(.bottom, 20)
     }
 
-    // Placeholder section views for the three new header icons. These are
-    // minimal for now and follow the same visual container style as the
-    // Notch dashboard so switching feels consistent. We'll keep content
-    // lightweight — replace with real functionality when ready.
-    var timeFocusView: some View {
-        TimeFocusView()
-    }
+    // Placeholder section views for header icons.
 
     // Helper formatting
     private func formatSeconds(_ seconds: Int) -> String {
@@ -541,6 +637,10 @@ struct SettingsView: View {
     @Binding var showMirror: Bool
     @Binding var isPresented: Bool
     @ObservedObject var cameraManager: CameraManager
+    @AppStorage("showFinderShortcut") private var showFinderShortcut: Bool = true
+    @AppStorage("showSafariShortcut") private var showSafariShortcut: Bool = true
+    @AppStorage("showScreenshotShortcut") private var showScreenshotShortcut: Bool = true
+    @AppStorage("showSettingsShortcut") private var showSettingsShortcut: Bool = true
     
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
@@ -591,18 +691,26 @@ struct SettingsView: View {
                 Text("Features")
                     .font(.headline)
                 
-                HStack {
-                    Toggle("Show Camera Mirror", isOn: $showMirror)
-                    
-                    if !cameraManager.isAuthorized && showMirror {
-                        Button("Open Settings") {
-                            cameraManager.openSystemPreferences()
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack(alignment: .center) {
+                        Toggle("Show Camera Mirror", isOn: $showMirror)
+                        Spacer()
+                        if !cameraManager.isAuthorized && showMirror {
+                            Button("Open Settings") {
+                                cameraManager.openSystemPreferences()
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .controlSize(.small)
                         }
-                        .buttonStyle(.borderedProminent)
-                        .controlSize(.small)
                     }
+
+                    // Primary shortcut toggles — kept in the same VStack so vertical spacing is uniform
+                    Toggle("Show Finder Shortcut", isOn: $showFinderShortcut)
+                    Toggle("Show Safari Shortcut", isOn: $showSafariShortcut)
+                    Toggle("Show Screenshot Shortcut", isOn: $showScreenshotShortcut)
+                    Toggle("Show System Settings Shortcut", isOn: $showSettingsShortcut)
                 }
-                
+
                 if !cameraManager.isAuthorized && showMirror {
                     VStack(alignment: .leading, spacing: 4) {
                         Text("⚠️ Camera access required")
@@ -1095,17 +1203,15 @@ struct FileItemView: View {
                     .aspectRatio(contentMode: .fit)
                     .frame(width: 50, height: 50)
                 
-                if isHoveringFile {
-                    Button(action: onRemove) {
-                        Image(systemName: "xmark.circle.fill")
-                            .font(.system(size: 18))
-                            .foregroundColor(.white)
-                            .background(Circle().fill(Color.red))
-                    }
-                    .buttonStyle(PlainButtonStyle())
-                    .offset(x: 8, y: -8)
-                    .transition(.scale.combined(with: .opacity))
+                // Always show the remove (x) button so it's visible and clickable
+                Button(action: onRemove) {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.system(size: 18))
+                        .foregroundColor(.white)
+                        .background(Circle().fill(Color.red))
                 }
+                .buttonStyle(PlainButtonStyle())
+                .offset(x: 8, y: -8)
             }
             
             VStack(spacing: 2) {

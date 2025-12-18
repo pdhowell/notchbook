@@ -173,7 +173,6 @@ class ShortcutManager: ObservableObject {
             "FaceTime": "com.apple.FaceTime",
             "Photos": "com.apple.Photos",
             "System Settings": "com.apple.systempreferences",
-            "Reminders": "com.apple.reminders",
             "Contacts": "com.apple.AddressBook",
             "Maps": "com.apple.Maps"
         ]

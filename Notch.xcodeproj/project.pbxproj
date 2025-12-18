@@ -410,8 +410,6 @@
 				INFOPLIST_KEY_NSAppleMusicUsageDescription = "NotchHub displays your currently playing music.";
 				INFOPLIST_KEY_NSCameraUsageDescription = "To show your reflection in the mirror widget";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
-				INFOPLIST_KEY_NSRemindersFullAccessUsageDescription = "We need full access to your reminders to create, view, and manage your tasks.";
-				INFOPLIST_KEY_NSRemindersUsageDescription = "need access to your reminders to help you manage your tasks and stay organized.";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
@@ -457,8 +455,6 @@
 				INFOPLIST_KEY_NSAppleMusicUsageDescription = "NotchHub displays your currently playing music.";
 				INFOPLIST_KEY_NSCameraUsageDescription = "To show your reflection in the mirror widget";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
-				INFOPLIST_KEY_NSRemindersFullAccessUsageDescription = "We need full access to your reminders to create, view, and manage your tasks.";
-				INFOPLIST_KEY_NSRemindersUsageDescription = "need access to your reminders to help you manage your tasks and stay organized.";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
