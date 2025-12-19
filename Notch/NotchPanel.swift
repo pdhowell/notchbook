@@ -52,17 +52,13 @@ class NotchPanel: NSPanel {
         
         setupContentView()
 
-        // Observe collapse/expand notifications from SwiftUI content
         NotificationCenter.default.addObserver(self, selector: #selector(handleToggleMouseEvents(_:)), name: Notification.Name("NotchPanelToggleMouseEvents"), object: nil)
 
-        // Add global event monitors to temporarily enable the panel when a drag is occurring
-        // This allows drag-and-drop onto the notch while keeping it click-through when collapsed.
         globalDragMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDragged, .leftMouseDown]) { [weak self] event in
             guard let self = self else { return }
             let mousePoint = NSEvent.mouseLocation // screen coords
             DispatchQueue.main.async {
-                // If mouse is over our panel and the panel is currently ignoring mouse events,
-                // temporarily enable it so it can accept drag/drop.
+
                 if self.frame.contains(mousePoint) && (self.shouldIgnoreClicks || self.ignoresMouseEvents) {
                     self.temporarilyEnabledForDrag = true
                     self.updateIgnoresMouseEvents()

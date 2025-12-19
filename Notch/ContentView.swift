@@ -100,104 +100,7 @@ struct ContentView: View {
         }
     }
     
-    // var notchContent: some View {
-    //     ZStack(alignment: .top) {
-    //         // BACKGROUND
-    //         BottomRoundedRectangle(bottomRadius: isHovering ? 24 : 12)
-    //             .fill(
-    //                 LinearGradient(
-    //                     gradient: Gradient(colors: [Color.black.opacity(0.95), Color.black.opacity(0.98)]),
-    //                     startPoint: .top, endPoint: .bottom
-    //                 )
-    //             )
-    //             .overlay(
-    //                 BottomRoundedRectangle(bottomRadius: isHovering ? 24 : 12)
-    //                     .stroke(Color.white.opacity(0.15), lineWidth: 1)
-    //             )
-    //             // heavy drop shadow when expanded
-    //             .shadow(color: .black.opacity(isHovering ? 0.7 : 0.0), radius: isHovering ? 20 : 0, x: 0, y: isHovering ? 10 : 0)
-            
-    //         // CONTENT
-    //         VStack(spacing: 0) {
-    //             if isHovering {
-    //                 headerView
-    //                     .transition(.opacity.animation(.easeInOut(duration: 0.2)))
-                    
-    //                 switch activeTab {
-    //                 case .notch:
-    //                     notchDashboardView
-    //                         .transition(.asymmetric(
-    //                             insertion: .opacity.combined(with: .scale(scale: 0.95)),
-    //                             removal: .opacity
-    //                         ))
-    //                 case .shelf:
-    //                     fileShelfView
-    //                         .transition(.asymmetric(
-    //                             insertion: .opacity.combined(with: .scale(scale: 0.95)),
-    //                             removal: .opacity
-    //                         ))
-                
-    //                 case .filesRecents:
-    //                     filesRecentsView
-    //                         .transition(.asymmetric(
-    //                             insertion: .opacity.combined(with: .scale(scale: 0.95)),
-    //                             removal: .opacity
-    //                         ))
-    //                 }
-    //             } else {
-    //                 collapsedStateView
-    //                     .transition(.opacity)
-    //             }
-    //         }
-    //         .clipped()
-    //     }
-    //     .onHover { hovering in
-    //         withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
-    //             isHovering = hovering
-    //         }
 
-    //         if hovering && activeTab == .notch && showMirror && cameraManager.isEnabled {
-    //             DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-    //                 cameraManager.start()
-    //             }
-    //         } else {
-    //             cameraManager.stop()
-    //         }
-    //     }
-    //     .onChange(of: isHovering) { _, newValue in
-    //         let ignore = !(newValue || showSettings)
-    //         NotificationCenter.default.post(name: Notification.Name("NotchPanelToggleMouseEvents"), object: nil, userInfo: ["ignore": ignore])
-    //     }
-
-    //     .onChange(of: showSettings) { _, newValue in
-    //         if newValue {
-    //             withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
-    //                 isHovering = false
-    //             }
-    //         }
-
-    //         let ignore = !(isHovering || newValue)
-    //         NotificationCenter.default.post(name: Notification.Name("NotchPanelToggleMouseEvents"), object: nil, userInfo: ["ignore": ignore])
-    //     }
-    //     .onChange(of: activeTab) { _, newTab in
-    //         if newTab == .notch && isHovering && showMirror && cameraManager.isEnabled {
-    //             DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-    //                 cameraManager.start()
-    //             }
-    //         } else {
-    //             cameraManager.stop()
-    //         }
-    //     }
-        
-    //     .onDrop(of: [.fileURL], isTargeted: $isDropTargeted) { providers in
-    //         withAnimation {
-    //             activeTab = .shelf
-    //             isHovering = true
-    //         }
-    //         handleDrop(providers: providers)
-    //         return true
-    //     }
-    // }
 
     var notchContent: some View {
         GeometryReader { geometry in
@@ -306,10 +209,6 @@ struct ContentView: View {
     
     // MARK: - SUBVIEWS
     
-    // Helper to create uniformly sized header icon buttons so spacing and alignment
-    // between icons is consistent. Pass `isActive` to visually highlight the
-    // currently selected section (matches the pattern used for the Notch/Shelf
-    // header buttons).
     @ViewBuilder
     private func headerIcon(_ systemName: String, isActive: Bool = false, action: @escaping () -> Void) -> some View {
         Button(action: action) {
@@ -322,7 +221,6 @@ struct ContentView: View {
         .buttonStyle(PlainButtonStyle())
     }
 
-    // ...existing code...
 
     var headerView: some View {
         HStack(spacing: 15) {
@@ -382,7 +280,6 @@ struct ContentView: View {
             // MEDIA PLAYER
             VStack(alignment: .leading, spacing: 10) {
                 HStack(spacing: 12) {
-                    // Album art with source app logo overlay at bottom-right
                     ZStack(alignment: .bottomTrailing) {
                         if let art = mediaManager.albumArt {
                             Image(nsImage: art)
@@ -520,7 +417,7 @@ struct ContentView: View {
                             // Centered camera-on toggle UI when OFF: shows camera icon with label
                             if !cameraManager.isEnabled {
                                 Button(action: {
-                                    // Toggle ON: enable and request permission/start
+
                                     cameraManager.isEnabled = true
                                     if cameraManager.isAuthorized {
                                         cameraManager.start()
@@ -575,7 +472,6 @@ struct ContentView: View {
         .padding(.bottom, 20)
     }
 
-    // Placeholder section views for header icons.
 
     // Helper formatting
     private func formatSeconds(_ seconds: Int) -> String {
@@ -606,7 +502,7 @@ struct ContentView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
     
-    // LOGIC
+
     func handleDrop(providers: [NSItemProvider]) {
         for provider in providers {
             provider.loadItem(forTypeIdentifier: UTType.fileURL.identifier, options: nil) { (item, error) in
@@ -881,15 +777,63 @@ class MediaManager: ObservableObject {
     private var currentTrackIdentifier: String = ""
 
     init() {
+
+        DistributedNotificationCenter.default().addObserver(self, selector: #selector(distributedPlayerNotification(_:)), name: NSNotification.Name("com.apple.Music.playerInfo"), object: nil)
+        DistributedNotificationCenter.default().addObserver(self, selector: #selector(distributedPlayerNotification(_:)), name: NSNotification.Name("com.spotify.client.PlaybackStateChanged"), object: nil)
+        DistributedNotificationCenter.default().addObserver(self, selector: #selector(distributedPlayerNotification(_:)), name: NSNotification.Name("com.apple.nowplaying"), object: nil)
+
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
             self.startListening()
         }
     }
 
     deinit {
+        DistributedNotificationCenter.default().removeObserver(self)
         timer?.invalidate()
     }
 
+    @objc private func distributedPlayerNotification(_ notification: Notification) {
+        guard let userInfo = notification.userInfo as? [String: Any] else { return }
+
+        // Try to extract common keys used by Music/Spotify distributed notifications.
+        func stringValue(_ keys: [String]) -> String? {
+            for k in keys {
+                if let v = userInfo[k] as? String, !v.isEmpty { return v }
+            }
+            return nil
+        }
+
+        let title = stringValue(["Name", "name", "title"]) ?? ""
+        let artist = stringValue(["Artist", "artist"]) ?? ""
+        let album = stringValue(["Album", "album"]) ?? ""
+
+        // Some notifications include playback state and position/duration
+        let state = (userInfo["Player State"] as? String) ?? (userInfo["playerState"] as? String) ?? ""
+
+        DispatchQueue.main.async {
+            if !title.isEmpty {
+                self.trackTitle = title
+                self.artistName = artist.isEmpty ? self.artistName : artist
+                self.appName = notification.name.rawValue.lowercased().contains("spotify") ? "Spotify" : "Music"
+            }
+
+            // Update playback boolean when possible
+            if !state.isEmpty {
+                self.isPlaying = state.lowercased().contains("playing")
+            }
+            if let pos = userInfo["Position"] as? NSNumber {
+                self.position = pos.doubleValue
+            } else if let posStr = userInfo["position"] as? String, let pos = Double(posStr) {
+                self.position = pos
+            }
+
+            if let dur = userInfo["Duration"] as? NSNumber {
+                self.duration = dur.doubleValue
+            } else if let durStr = userInfo["duration"] as? String, let dur = Double(durStr) {
+                self.duration = dur
+            }
+        }
+    }
     func startListening() {
         // Poll every 1.5 seconds
         timer = Timer.scheduledTimer(withTimeInterval: 1.5, repeats: true) { [weak self] _ in
@@ -1296,27 +1240,23 @@ struct BottomRoundedRectangle: Shape {
 }
 
 struct CameraPreviewView: NSViewRepresentable {
-    @ObservedObject var cameraSession: CameraManager // provides `session: AVCaptureSession`
-
+    @ObservedObject var cameraSession: CameraManager 
     func makeNSView(context: Context) -> NSView {
         // 1. Create a basic NSView that is layer-backed
         let view = NSView()
         view.wantsLayer = true
         
         // 2. Create the preview layer using the session
-        // Note: Access the session from your manager or property
         let previewLayer = AVCaptureVideoPreviewLayer(session: cameraSession.session)
         
         // 3. Configure the layer appearance
     previewLayer.videoGravity = AVLayerVideoGravity.resizeAspectFill
     previewLayer.frame = view.bounds
-    // Use CA layer autoresizing masks for CALayer
     previewLayer.autoresizingMask = [.layerWidthSizable, .layerHeightSizable]
         
         // 4. Add the layer to the view
         view.layer = previewLayer
         
-        // 5. CRITICAL FIX: Configure the connection immediately after creation
         setupConnection(for: previewLayer)
         
         return view
@@ -1332,7 +1272,6 @@ struct CameraPreviewView: NSViewRepresentable {
         }
     }
 
-    // MARK: - The Fix
     private func setupConnection(for previewLayer: AVCaptureVideoPreviewLayer) {
         // We must check if the connection exists (it might be nil momentarily during startup)
         guard let connection = previewLayer.connection else { return }

@@ -6,8 +6,8 @@ import AppKit
 struct ShortcutItem: Identifiable, Codable {
     var id = UUID()
     var name: String
-    var iconName: String // SF Symbol name
-    var actionURL: String // URL scheme or command
+    var iconName: String 
+    var actionURL: String 
     var actionType: ActionType = .urlScheme
     
     enum ActionType: String, Codable {
@@ -25,10 +25,9 @@ class ShortcutManager: ObservableObject {
     init() {
         loadShortcuts()
 
-        // Add comprehensive default shortcuts if empty
+
         if shortcuts.isEmpty {
-            // Default shortcuts: put the four primary shortcuts first so the UI shows
-            // Finder, Safari, Screenshot and System Settings in the main view.
+
             shortcuts = [
                 ShortcutItem(
                     name: "Finder",
@@ -71,9 +70,6 @@ class ShortcutManager: ObservableObject {
             ]
             saveShortcuts()
         } else {
-            // If user has previously saved shortcuts but System Settings is missing,
-            // insert it as the 4th shortcut so the UI (which shows the first 4)
-            // will include it by default without overwriting the user's list.
             if !shortcuts.contains(where: { $0.name == "System Settings" }) {
                 let systemSettings = ShortcutItem(
                     name: "System Settings",
@@ -128,23 +124,19 @@ class ShortcutManager: ObservableObject {
             runShellCommand("screencapture -i -c")
             return
         }
-        
-        // Try to open by name
+
         if let appURL = NSWorkspace.shared.urlForApplication(withBundleIdentifier: getBundleIdentifier(for: appName)) {
             NSWorkspace.shared.open(appURL)
         } else {
             // Fallback: try opening by name
             let workspace = NSWorkspace.shared
             let apps = workspace.runningApplications
-            
-            // Check if already running
+
             if let runningApp = apps.first(where: { $0.localizedName == appName }) {
-                // activateIgnoringOtherApps is deprecated; activating with empty options
-                // is sufficient and future-proof.
+
                 runningApp.activate(options: [])
             } else {
-                // Try to launch using modern API. Prefer resolving the full path
-                // first, falling back to opening the application bundle URL.
+
                 if let path = workspace.fullPath(forApplication: appName) {
                     let appURL = URL(fileURLWithPath: path)
                     let config = NSWorkspace.OpenConfiguration()
@@ -154,7 +146,6 @@ class ShortcutManager: ObservableObject {
                     let config = NSWorkspace.OpenConfiguration()
                     workspace.openApplication(at: appURL, configuration: config, completionHandler: nil)
                 } else {
-                    // Last resort: try the old helper which may still work on some systems.
                     workspace.launchApplication(appName)
                 }
             }
