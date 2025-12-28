@@ -67,3 +67,7 @@ Designed to reduce context switching, it brings frequently used actions into a c
 
 ## 🎥 Demo
 
+
+https://github.com/user-attachments/assets/79a4c304-4f09-4ab0-8382-9bc2403ce519
+
+
